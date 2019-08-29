@@ -1,0 +1,7 @@
+import other "other.fl";
+
+main :: proc () {
+  other.puts();
+
+  a := -123;
+}
