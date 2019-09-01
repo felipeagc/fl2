@@ -4,9 +4,11 @@ compiler_lib_sources = [
 	'src/position.c',
 	'src/str_builder.c',
 	'src/bump_alloc.c',
+	'src/table.c',
 
+	'src/context.c',
 	'src/scanner.c',
-	# 'src/parser.c',
+	'src/parser.c',
 ]
 
 compiler_exe_sources = [

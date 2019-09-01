@@ -1,0 +1,9 @@
+import hello "hello.fl";
+
+MyStruct :: struct {
+
+}
+
+main :: proc () {
+
+}

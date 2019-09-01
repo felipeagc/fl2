@@ -70,7 +70,7 @@ typedef struct {
   token_type_t type;
   pos_t pos;
   union {
-    strbuf_t ident;
+    strbuf_t string;
     int64_t i64;
     double f64;
   };
@@ -83,7 +83,7 @@ static inline strbuf_t token_to_string(token_t *token) {
 
   switch (token->type) {
   case TOKEN_IDENT: {
-    str = token->ident;
+    str = token->string;
   } break;
   default: {
     str.buf   = &token->pos.file->content.buf[token->pos.offset];

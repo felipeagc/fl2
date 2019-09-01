@@ -4,11 +4,11 @@
 #include <stdio.h>
 
 static void error(scanner_t *s, const char *fmt, ...) {
-  sb_reset(&s->sb);
+  sb_reset(&s->ctx->sb);
 
   va_list vl;
   va_start(vl, fmt);
-  sb_vsprintf(&s->sb, fmt, vl);
+  sb_vsprintf(&s->ctx->sb, fmt, vl);
   va_end(vl);
 
   error_t err = {
@@ -18,7 +18,7 @@ static void error(scanner_t *s, const char *fmt, ...) {
               .line   = s->line,
               .col    = s->col,
           },
-      .msg = bump_strdup(&s->alloc, sb_build(&s->sb)),
+      .msg = bump_strdup(&s->ctx->alloc, sb_build(&s->ctx->sb)),
   };
 
   APPEND(s->errors, err);
@@ -74,7 +74,7 @@ static inline void skip_whitespace(scanner_t *s) {
 }
 
 static void scan_identifier(scanner_t *s) {
-  sb_reset(&s->sb);
+  sb_reset(&s->ctx->sb);
 
   pos_t pos  = {0};
   pos.file   = s->file;
@@ -83,13 +83,13 @@ static void scan_identifier(scanner_t *s) {
   pos.col    = s->col;
 
   while (!is_at_end(s) && is_alphanum(peek(s))) {
-    sb_append_char(&s->sb, peek(s));
+    sb_append_char(&s->ctx->sb, peek(s));
     next(s);
   }
 
   pos.len = s->offset - pos.offset;
 
-  strbuf_t ident = sb_build(&s->sb);
+  strbuf_t ident = sb_build(&s->ctx->sb);
 
   token_t token = {
       .type = TOKEN_IDENT,
@@ -185,17 +185,17 @@ static void scan_identifier(scanner_t *s) {
     APPEND(s->tokens, token);
     return;
   } else if (strbuf_cmp(ident, STR("import"))) {
-    token.type = TOKEN_ELSE;
+    token.type = TOKEN_IMPORT;
     APPEND(s->tokens, token);
     return;
   }
 
-  token.ident = bump_strdup(&s->alloc, ident);
+  token.string = bump_strdup(&s->ctx->alloc, ident);
   APPEND(s->tokens, token);
 }
 
 static void scan_string(scanner_t *s) {
-  sb_reset(&s->sb);
+  sb_reset(&s->ctx->sb);
 
   token_t token = {
       .type = TOKEN_STRING,
@@ -212,9 +212,9 @@ static void scan_string(scanner_t *s) {
       char slash = next(s);
       if (peek(s) == '"' || peek(s) == 't' || peek(s) == 'n' ||
           peek(s) == '\\') {
-        sb_append_char(&s->sb, next(s));
+        sb_append_char(&s->ctx->sb, next(s));
       } else {
-        sb_append_char(&s->sb, slash);
+        sb_append_char(&s->ctx->sb, slash);
       }
       continue;
     }
@@ -223,19 +223,19 @@ static void scan_string(scanner_t *s) {
       break;
     }
 
-    sb_append_char(&s->sb, next(s));
+    sb_append_char(&s->ctx->sb, next(s));
   }
 
   next(s);
 
-  token.ident   = bump_strdup(&s->alloc, sb_build(&s->sb));
+  token.string  = bump_strdup(&s->ctx->alloc, sb_build(&s->ctx->sb));
   token.pos.len = s->offset - token.pos.offset;
 
   APPEND(s->tokens, token);
 }
 
 static void scan_number(scanner_t *s) {
-  sb_reset(&s->sb);
+  sb_reset(&s->ctx->sb);
 
   token_t token    = {0};
   token.pos.file   = s->file;
@@ -246,14 +246,14 @@ static void scan_number(scanner_t *s) {
   bool has_dot = false;
 
   while (!is_at_end(s) && (is_numeric(peek(s)) || peek(s) == '.')) {
-    sb_append_char(&s->sb, peek(s));
+    sb_append_char(&s->ctx->sb, peek(s));
     if (peek(s) == '.') has_dot = true;
     next(s);
   }
 
-  sb_append_char(&s->sb, '\0');
+  sb_append_char(&s->ctx->sb, '\0');
 
-  char *str = sb_build(&s->sb).buf;
+  char *str = sb_build(&s->ctx->sb).buf;
 
   if (has_dot) {
     token.type = TOKEN_FLOAT;
@@ -434,10 +434,9 @@ static void scan_token(scanner_t *s) {
   }
 }
 
-void scanner_init(scanner_t *s) {
+void scanner_init(scanner_t *s, ctx_t *ctx) {
   memset(s, 0, sizeof(*s));
-  sb_init(&s->sb);
-  bump_init(&s->alloc, 1 << 14);
+  s->ctx = ctx;
 }
 
 result_t scanner_scan(scanner_t *s, file_t *file, token_slice_t *tokens) {
@@ -459,9 +458,4 @@ result_t scanner_scan(scanner_t *s, file_t *file, token_slice_t *tokens) {
       .type   = RESULT_SCANNER,
       .errors = s->errors,
   };
-}
-
-void scanner_destroy(scanner_t *s) {
-  sb_destroy(&s->sb);
-  bump_destroy(&s->alloc);
 }
