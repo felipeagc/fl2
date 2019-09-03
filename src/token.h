@@ -64,7 +64,10 @@ typedef enum {
   TOKEN_IF,
   TOKEN_ELSE,
   TOKEN_IMPORT,
+  TOKEN_USING,
 } token_type_t;
+
+extern char *TOKEN_STRINGS[];
 
 typedef struct {
   token_type_t type;

@@ -188,6 +188,10 @@ static void scan_identifier(scanner_t *s) {
     token.type = TOKEN_IMPORT;
     APPEND(s->tokens, token);
     return;
+  } else if (strbuf_cmp(ident, STR("using"))) {
+    token.type = TOKEN_USING;
+    APPEND(s->tokens, token);
+    return;
   }
 
   token.string = bump_strdup(&s->ctx->alloc, ident);

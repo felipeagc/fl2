@@ -1,10 +1,23 @@
-import hello "hello.fl";
+hello :: import "hello.fl";
+using import "hello.fl";
 
 MyStruct :: struct {
 
 }
 
 main :: proc () {
+  a := hello.asd;
+  b := hello.asd;
+  b := hello.asd;
+
+  hello :: proc () {
+
+  }
+
+  a = asdasd.asdasd;
+}
+
+derp :: proc () {
   a := hello.asd;
   b := hello.asd;
 }

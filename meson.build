@@ -5,6 +5,7 @@ compiler_lib_sources = [
 	'src/str_builder.c',
 	'src/bump_alloc.c',
 	'src/table.c',
+	'src/token.c',
 
 	'src/context.c',
 	'src/scanner.c',
