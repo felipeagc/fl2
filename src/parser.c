@@ -3,7 +3,9 @@
 #include <assert.h>
 #include <stdio.h>
 
-static inline bool is_at_end(parser_t *p) { return p->pos >= p->tokens.count; }
+static inline bool is_at_end(parser_t *p) {
+  return p->pos >= p->tokens.count || p->tokens.buf[p->pos].type == TOKEN_EOF;
+}
 
 static inline token_t *peek(parser_t *p) { return &p->tokens.buf[p->pos]; }
 
@@ -86,7 +88,7 @@ static bool parse_proc(parser_t *p, proc_t *proc) {
 
   if (!consume(p, TOKEN_LCURLY)) res = false;
 
-  while (peek(p)->type != TOKEN_RCURLY) {
+  while (peek(p)->type != TOKEN_RCURLY && !is_at_end(p)) {
     stmt_t stmt = {0};
     if (parse_stmt(p, &stmt)) {
       APPEND(proc->stmts, stmt);

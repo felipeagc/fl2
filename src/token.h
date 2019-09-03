@@ -19,6 +19,7 @@ typedef enum {
   TOKEN_RCURLY, // }
 
   TOKEN_DOT,   // .
+  TOKEN_COMMA, // ,
   TOKEN_COLON, // :
   TOKEN_SEMI,  // ;
 

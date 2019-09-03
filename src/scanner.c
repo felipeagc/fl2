@@ -323,6 +323,11 @@ static void scan_token(scanner_t *s) {
     token.type = TOKEN_DOT;
     APPEND(s->tokens, token);
   } break;
+  case ',': {
+    next(s);
+    token.type = TOKEN_COMMA;
+    APPEND(s->tokens, token);
+  } break;
   case ':': {
     next(s);
     token.type = TOKEN_COLON;
@@ -455,6 +460,17 @@ error_set_t scanner_scan(scanner_t *s, file_t *file, token_slice_t *tokens) {
   while (!is_at_end(s)) {
     scan_token(s);
   }
+
+  token_t eof_tok = {.type = TOKEN_EOF,
+                     .pos  = (pos_t){
+                         .file   = s->file,
+                         .offset = file->size,
+                         .len    = 0,
+                         .line   = s->line,
+                         .col    = s->col,
+                     }};
+
+  APPEND(s->tokens, eof_tok);
 
   *tokens = s->tokens;
 

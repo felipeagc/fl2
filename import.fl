@@ -11,13 +11,11 @@ main :: proc () {
   b := hello.asd;
 
   hello :: proc () {
-
+    a = asdasd.asdasd;
   }
 
-  a = asdasd.asdasd;
-}
-
-derp :: proc () {
-  a := hello.asd;
-  b := hello.asd;
+  derp :: proc () {
+    a := hello.asd;
+    b := hello.asd;
+  }
 }
