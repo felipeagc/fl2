@@ -19,4 +19,4 @@ typedef struct scanner_t {
 
 void scanner_init(scanner_t *s, ctx_t *ctx);
 
-result_t scanner_scan(scanner_t *s, file_t *file, token_slice_t *tokens);
+error_set_t scanner_scan(scanner_t *s, file_t *file, token_slice_t *tokens);

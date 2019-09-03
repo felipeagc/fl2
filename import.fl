@@ -5,5 +5,6 @@ MyStruct :: struct {
 }
 
 main :: proc () {
-
+  a := hello.asd;
+  b := hello.asd;
 }

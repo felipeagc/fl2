@@ -20,7 +20,7 @@ int main(int argc, char *argv[]) {
   scanner_init(&scanner, &ctx);
 
   token_slice_t tokens;
-  result_t result = scanner_scan(&scanner, &file, &tokens);
+  error_set_t result = scanner_scan(&scanner, &file, &tokens);
   if (result.errors.count > 0) {
     For(err, result.errors) {
       printf(

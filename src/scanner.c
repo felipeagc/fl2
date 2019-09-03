@@ -439,7 +439,7 @@ void scanner_init(scanner_t *s, ctx_t *ctx) {
   s->ctx = ctx;
 }
 
-result_t scanner_scan(scanner_t *s, file_t *file, token_slice_t *tokens) {
+error_set_t scanner_scan(scanner_t *s, file_t *file, token_slice_t *tokens) {
   memset(&s->tokens, 0, sizeof(s->tokens));
   memset(&s->errors, 0, sizeof(s->errors));
 
@@ -454,7 +454,7 @@ result_t scanner_scan(scanner_t *s, file_t *file, token_slice_t *tokens) {
 
   *tokens = s->tokens;
 
-  return (result_t){
+  return (error_set_t){
       .type   = RESULT_SCANNER,
       .errors = s->errors,
   };

@@ -2,6 +2,12 @@
 
 #include "strbuf.h"
 
+#define TRY(result)                                                            \
+  do {                                                                         \
+    bool res = result;                                                         \
+    if (!res) return res;                                                      \
+  } while (0);
+
 typedef struct error_t {
   pos_t pos;
   strbuf_t msg;
@@ -16,7 +22,7 @@ typedef enum {
   RESULT_CODEGEN,
 } result_type_t;
 
-typedef struct result_t {
+typedef struct error_set_t {
   result_type_t type;
   error_slice_t errors;
-} result_t;
+} error_set_t;

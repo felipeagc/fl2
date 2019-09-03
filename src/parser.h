@@ -20,4 +20,5 @@ typedef struct parser_t {
 
 void parser_init(parser_t *p, ctx_t *ctx);
 
-result_t parser_parse(parser_t *p, file_t *file, token_slice_t tokens, ast_t *ast);
+error_set_t
+parser_parse(parser_t *p, file_t *file, token_slice_t tokens, ast_t *ast);
