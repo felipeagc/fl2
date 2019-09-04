@@ -1,5 +1,8 @@
 project('fl2', 'c', 'cpp')
 
+cc = meson.get_compiler('c')
+m_dep = cc.find_library('m', required: false)
+
 compiler_lib_sources = [
 	'src/position.c',
 	'src/str_builder.c',
@@ -17,7 +20,9 @@ compiler_exe_sources = [
 ]
 
 compiler_lib = library('fl', compiler_lib_sources)
-compiler_exe = executable('fl', compiler_exe_sources, link_with: [compiler_lib])
+compiler_dep = declare_dependency(link_with: compiler_lib, dependencies: [m_dep])
+
+compiler_exe = executable('fl', compiler_exe_sources, dependencies: [compiler_dep])
 
 test_sources = [
 	'src/tests.c'

@@ -14,8 +14,10 @@ main :: proc () {
     a = asdasd.asdasd;
   }
 
+  hello.asd = 123;
+
   derp :: proc () {
-    a := hello.asd;
+    a :: hello.asd;
     b := hello.asd;
   }
 }

@@ -50,6 +50,18 @@ static inline token_t *consume(parser_t *p, token_type_t tok_type) {
   }
 }
 
+static inline void push_checkpoint(parser_t *p) {
+  APPEND(p->checkpoints, p->pos);
+}
+
+static inline void pop_checkpoint(parser_t *p, bool success) {
+  assert(p->checkpoints.count > 0);
+
+  if (!success) p->pos = p->checkpoints.buf[p->checkpoints.count - 1];
+
+  p->checkpoints.count--;
+}
+
 static bool parse_stmt(parser_t *p, stmt_t *stmt);
 
 static bool parse_import(parser_t *p, import_t *import) {
@@ -125,7 +137,7 @@ static bool parse_primary(parser_t *p, primary_expr_t *primary) {
 
     ident_t *last_ident = &ident;
 
-    while (peek(p)->type == TOKEN_DOT) {
+    while (peek(p)->type == TOKEN_DOT && !is_at_end(p)) {
       next(p);
 
       tok = consume(p, TOKEN_IDENT);
@@ -142,6 +154,7 @@ static bool parse_primary(parser_t *p, primary_expr_t *primary) {
     }
 
     if (peek(p)->type == TOKEN_LPAREN) {
+      // TODO: proc call
       next(p);
 
       if (!consume(p, TOKEN_RPAREN)) res = false;
@@ -238,25 +251,16 @@ static bool parse_decl_or_assign(parser_t *p, stmt_t *stmt) {
     } break;
     }
 
-  } else if (
-      look(p, 0)->type == TOKEN_IDENT && look(p, 1)->type == TOKEN_ASSIGN) {
-    // Assignment
+  } else {
     stmt->kind = STMT_VAR_ASSIGN;
-    TRY(parse_expr(p, &stmt->var_assign.assigned));
+
+    if (!parse_expr(p, &stmt->var_assign.assigned)) res = false;
 
     if (!consume(p, TOKEN_ASSIGN)) res = false;
 
-    TRY(parse_expr(p, &stmt->var_assign.expr));
+    if (!parse_expr(p, &stmt->var_assign.expr)) res = false;
 
     if (!consume(p, TOKEN_SEMI)) res = false;
-  } else {
-    token_t *tok = next(p);
-
-    return error(
-        p,
-        tok->pos,
-        "unexpected token: '%s', expected declaration or assignment",
-        TOKEN_STRINGS[tok->type]);
   }
 
   return res;
@@ -297,12 +301,13 @@ void parser_init(parser_t *p, ctx_t *ctx) {
 error_set_t
 parser_parse(parser_t *p, file_t *file, token_slice_t tokens, ast_t *ast) {
   memset(&p->errors, 0, sizeof(p->errors));
+  memset(&p->checkpoints, 0, sizeof(p->checkpoints));
   p->file   = file;
   p->tokens = tokens;
   p->ast    = ast;
 
   while (!is_at_end(p)) {
-    stmt_t stmt;
+    stmt_t stmt = {0};
     if (parse_stmt(p, &stmt)) APPEND(ast->stmts, stmt);
   }
 

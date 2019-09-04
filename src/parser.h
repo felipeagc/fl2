@@ -6,6 +6,8 @@
 #include "result.h"
 #include "token.h"
 
+typedef SLICE(size_t) size_slice_t;
+
 typedef struct parser_t {
   ctx_t *ctx;
 
@@ -16,6 +18,8 @@ typedef struct parser_t {
   size_t pos;
 
   ast_t *ast;
+
+  size_slice_t checkpoints;
 } parser_t;
 
 void parser_init(parser_t *p, ctx_t *ctx);
