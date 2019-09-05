@@ -31,12 +31,26 @@ typedef struct import_t {
   strbuf_t path;
 } import_t;
 
+typedef enum primitive_type_t {
+  PRIMITIVE_TYPE_I8,
+  PRIMITIVE_TYPE_I16,
+  PRIMITIVE_TYPE_I32,
+  PRIMITIVE_TYPE_I64,
+  PRIMITIVE_TYPE_U8,
+  PRIMITIVE_TYPE_U16,
+  PRIMITIVE_TYPE_U32,
+  PRIMITIVE_TYPE_U64,
+  PRIMITIVE_TYPE_BOOL,
+  PRIMITIVE_TYPE_VOID,
+} primitive_type_t;
+
 typedef struct primary_expr_t {
   enum {
     PRIMARY_INT,
     PRIMARY_FLOAT,
     PRIMARY_IDENT,
     PRIMARY_PROC_CALL,
+    PRIMARY_PRIMITIVE_TYPE,
   } kind;
 
   union {
@@ -44,6 +58,7 @@ typedef struct primary_expr_t {
     double f64;
     ident_t ident;
     proc_call_t proc_call;
+    primitive_type_t prim_type;
   };
 } primary_expr_t;
 
@@ -66,6 +81,7 @@ typedef struct expr_t {
 typedef struct var_decl_t {
   strbuf_t name;
   expr_t expr;
+  expr_t type;
 } var_decl_t;
 
 typedef struct var_assign_t {
@@ -76,6 +92,7 @@ typedef struct var_assign_t {
 typedef struct const_decl_t {
   strbuf_t name;
   expr_t expr;
+  expr_t type;
 } const_decl_t;
 
 typedef struct stmt_t {

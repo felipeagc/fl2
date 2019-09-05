@@ -6,7 +6,7 @@ MyStruct :: struct {
 }
 
 main :: proc () {
-  a := hello.asd;
+  a : i32 = hello.asd();
   b := hello.asd;
   b := hello.asd;
 

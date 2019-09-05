@@ -124,11 +124,13 @@ static bool parse_primary(parser_t *p, primary_expr_t *primary) {
     primary->kind = PRIMARY_FLOAT;
     primary->f64  = tok->f64;
   } break;
+
   case TOKEN_INT: {
     next(p);
     primary->kind = PRIMARY_INT;
     primary->i64  = tok->i64;
   } break;
+
   case TOKEN_IDENT: {
     next(p);
     ident_t ident;
@@ -153,17 +155,52 @@ static bool parse_primary(parser_t *p, primary_expr_t *primary) {
       last_ident = last_ident->child;
     }
 
+    primary->kind  = PRIMARY_IDENT;
+    primary->ident = ident;
+
     if (peek(p)->type == TOKEN_LPAREN) {
+      primary->kind            = PRIMARY_PROC_CALL;
+      primary->proc_call.ident = ident;
+
       // TODO: proc call
-      next(p);
+      if (!consume(p, TOKEN_LPAREN)) res = false;
 
       if (!consume(p, TOKEN_RPAREN)) res = false;
-    } else {
-      primary->kind  = PRIMARY_IDENT;
-      primary->ident = ident;
     }
   } break;
+
+  case TOKEN_I8:
+  case TOKEN_I16:
+  case TOKEN_I32:
+  case TOKEN_I64:
+  case TOKEN_U8:
+  case TOKEN_U16:
+  case TOKEN_U32:
+  case TOKEN_U64:
+  case TOKEN_BOOL:
+  case TOKEN_VOID: {
+    next(p);
+
+    primary->kind = PRIMARY_PRIMITIVE_TYPE;
+
+    switch (tok->type) {
+    case TOKEN_I8: primary->prim_type = PRIMITIVE_TYPE_I8; break;
+    case TOKEN_I16: primary->prim_type = PRIMITIVE_TYPE_I16; break;
+    case TOKEN_I32: primary->prim_type = PRIMITIVE_TYPE_I32; break;
+    case TOKEN_I64: primary->prim_type = PRIMITIVE_TYPE_I64; break;
+    case TOKEN_U8: primary->prim_type = PRIMITIVE_TYPE_U8; break;
+    case TOKEN_U16: primary->prim_type = PRIMITIVE_TYPE_U16; break;
+    case TOKEN_U32: primary->prim_type = PRIMITIVE_TYPE_U32; break;
+    case TOKEN_U64: primary->prim_type = PRIMITIVE_TYPE_U64; break;
+    case TOKEN_BOOL: primary->prim_type = PRIMITIVE_TYPE_BOOL; break;
+    case TOKEN_VOID: primary->prim_type = PRIMITIVE_TYPE_VOID; break;
+    default: assert(0);
+    }
+
+  } break;
+
   default: {
+    next(p);
     res = error(p, tok->pos, "unexpected token, expected primary");
   } break;
   }
@@ -209,16 +246,23 @@ static bool parse_decl_or_assign(parser_t *p, stmt_t *stmt) {
     token_t *tok = peek(p);
     switch (tok->type) {
     case TOKEN_ASSIGN:
-    case TOKEN_COLON: {
-      next(p);
-    } break;
+    case TOKEN_COLON: next(p); break;
     default: {
-      error(p, tok->pos, "unexpected token, expected ':' or '='");
+      expr_t type_expr;
+      if (!parse_expr(p, &type_expr)) res = false;
+
+      switch (peek(p)->type) {
+      case TOKEN_ASSIGN:
+      case TOKEN_COLON: next(p); break;
+      default: {
+        return error(p, tok->pos, "unexpected token, expected ':' or '='");
+      } break;
+      }
     } break;
     }
 
     expr_t expr;
-    TRY(parse_expr(p, &expr));
+    if (!parse_expr(p, &expr)) res = false;
 
     switch (tok->type) {
     case TOKEN_ASSIGN: {
@@ -228,7 +272,12 @@ static bool parse_decl_or_assign(parser_t *p, stmt_t *stmt) {
 
       stmt->var_decl.expr = expr;
 
-      if (!consume(p, TOKEN_SEMI)) res = false;
+      if (!consume(p, TOKEN_SEMI)) {
+        res = false;
+        while (next(p)->type != TOKEN_SEMI) {
+          if (is_at_end(p)) return res;
+        }
+      }
     } break;
     case TOKEN_COLON: {
       // Constant declaration
@@ -241,7 +290,12 @@ static bool parse_decl_or_assign(parser_t *p, stmt_t *stmt) {
       case EXPR_STRUCT:
       case EXPR_PROC: break;
       default: {
-        if (!consume(p, TOKEN_SEMI)) res = false;
+        if (!consume(p, TOKEN_SEMI)) {
+          res = false;
+          while (next(p)->type != TOKEN_SEMI) {
+            if (is_at_end(p)) return res;
+          }
+        }
       } break;
       }
 
@@ -269,6 +323,8 @@ static bool parse_decl_or_assign(parser_t *p, stmt_t *stmt) {
 static bool parse_stmt(parser_t *p, stmt_t *stmt) {
   bool res     = true;
   token_t *tok = peek(p);
+
+  /* printf("%zu:%zu\n", peek(p)->pos.line, peek(p)->pos.col); */
 
   switch (tok->type) {
   case TOKEN_USING: {
