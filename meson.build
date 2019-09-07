@@ -9,10 +9,12 @@ compiler_lib_sources = [
 	'src/bump_alloc.c',
 	'src/table.c',
 	'src/token.c',
+	'src/scope.c',
 
 	'src/context.c',
 	'src/scanner.c',
 	'src/parser.c',
+	'src/analyzer.c',
 ]
 
 compiler_exe_sources = [

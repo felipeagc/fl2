@@ -50,17 +50,23 @@ static inline token_t *consume(parser_t *p, token_type_t tok_type) {
   }
 }
 
-static inline void push_checkpoint(parser_t *p) {
-  APPEND(p->checkpoints, p->pos);
-}
+#define SKIP_TO(tok_type)                                                      \
+  while (peek(p)->type != tok_type) {                                          \
+    if (is_at_end(p)) return res;                                              \
+    next(p);                                                                   \
+  }
 
-static inline void pop_checkpoint(parser_t *p, bool success) {
-  assert(p->checkpoints.count > 0);
+/* static inline void push_checkpoint(parser_t *p) { */
+/*   APPEND(p->checkpoints, p->pos); */
+/* } */
 
-  if (!success) p->pos = p->checkpoints.buf[p->checkpoints.count - 1];
+/* static inline void pop_checkpoint(parser_t *p, bool success) { */
+/*   assert(p->checkpoints.count > 0); */
 
-  p->checkpoints.count--;
-}
+/*   if (!success) p->pos = p->checkpoints.buf[p->checkpoints.count - 1]; */
+
+/*   p->checkpoints.count--; */
+/* } */
 
 static bool parse_stmt(parser_t *p, stmt_t *stmt);
 
@@ -96,14 +102,16 @@ static bool parse_proc(parser_t *p, proc_t *proc) {
 
   if (!consume(p, TOKEN_PROC)) res = false;
   if (!consume(p, TOKEN_LPAREN)) res = false;
+  
   if (!consume(p, TOKEN_RPAREN)) res = false;
 
   if (!consume(p, TOKEN_LCURLY)) res = false;
 
   while (peek(p)->type != TOKEN_RCURLY && !is_at_end(p)) {
-    stmt_t stmt = {0};
+    stmt_t stmt;
+    memset(&stmt, 0, sizeof(stmt));
     if (parse_stmt(p, &stmt)) {
-      APPEND(proc->stmts, stmt);
+      APPEND(proc->block.stmts, stmt);
     } else {
       res = false;
     }
@@ -163,9 +171,15 @@ static bool parse_primary(parser_t *p, primary_expr_t *primary) {
       primary->proc_call.ident = ident;
 
       // TODO: proc call
-      if (!consume(p, TOKEN_LPAREN)) res = false;
+      if (!consume(p, TOKEN_LPAREN)) {
+        res = false;
+        SKIP_TO(TOKEN_SEMI);
+      }
 
-      if (!consume(p, TOKEN_RPAREN)) res = false;
+      if (!consume(p, TOKEN_RPAREN)) {
+        res = false;
+        SKIP_TO(TOKEN_SEMI);
+      }
     }
   } break;
 
@@ -230,7 +244,11 @@ static bool parse_struct_proc_import(parser_t *p, expr_t *expr) {
 }
 
 static bool parse_expr(parser_t *p, expr_t *expr) {
-  return parse_struct_proc_import(p, expr);
+  memset(expr, 0, sizeof(*expr));
+  expr->pos     = peek(p)->pos;
+  bool res      = parse_struct_proc_import(p, expr);
+  expr->pos.len = peek(p)->pos.offset - expr->pos.offset;
+  return res;
 }
 
 static bool parse_decl_or_assign(parser_t *p, stmt_t *stmt) {
@@ -324,14 +342,16 @@ static bool parse_stmt(parser_t *p, stmt_t *stmt) {
   bool res     = true;
   token_t *tok = peek(p);
 
-  /* printf("%zu:%zu\n", peek(p)->pos.line, peek(p)->pos.col); */
+  memset(stmt, 0, sizeof(*stmt));
+
+  stmt->pos = tok->pos;
 
   switch (tok->type) {
   case TOKEN_USING: {
     next(p);
 
     stmt->kind = STMT_USING;
-    TRY(parse_expr(p, &stmt->expr));
+    if (!parse_expr(p, &stmt->expr)) res = false;
 
     switch (stmt->expr.kind) {
     case EXPR_STRUCT:
@@ -342,9 +362,11 @@ static bool parse_stmt(parser_t *p, stmt_t *stmt) {
     }
   } break;
   default: {
-    TRY(parse_decl_or_assign(p, stmt));
+    if (!parse_decl_or_assign(p, stmt)) res = false;
   } break;
   }
+
+  stmt->pos.len = peek(p)->pos.offset - stmt->pos.offset;
 
   return res;
 }
@@ -362,9 +384,12 @@ parser_parse(parser_t *p, file_t *file, token_slice_t tokens, ast_t *ast) {
   p->tokens = tokens;
   p->ast    = ast;
 
+  ast->file = file;
+
   while (!is_at_end(p)) {
-    stmt_t stmt = {0};
-    if (parse_stmt(p, &stmt)) APPEND(ast->stmts, stmt);
+    stmt_t stmt;
+    memset(&stmt, 0, sizeof(stmt));
+    if (parse_stmt(p, &stmt)) APPEND(ast->block.stmts, stmt);
   }
 
   return (error_set_t){

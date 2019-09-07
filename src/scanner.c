@@ -14,7 +14,9 @@ static void error(scanner_t *s, const char *fmt, ...) {
   error_t err = {
       .pos =
           (pos_t){
+              .file   = s->file,
               .offset = s->offset,
+              .len    = 1,
               .line   = s->line,
               .col    = s->col,
           },
@@ -38,11 +40,6 @@ static inline char next(scanner_t *s) {
 static inline char peek(scanner_t *s) {
   if (is_at_end(s)) return '\0';
   return s->file->content.buf[s->offset];
-}
-
-static inline char prev(scanner_t *s) {
-  if (s->offset <= 0) return '\0';
-  return s->file->content.buf[s->offset - 1];
 }
 
 static inline bool is_letter(char c) {
@@ -464,7 +461,7 @@ error_set_t scanner_scan(scanner_t *s, file_t *file, token_slice_t *tokens) {
   token_t eof_tok = {.type = TOKEN_EOF,
                      .pos  = (pos_t){
                          .file   = s->file,
-                         .offset = file->size,
+                         .offset = file->content.count,
                          .len    = 0,
                          .line   = s->line,
                          .col    = s->col,

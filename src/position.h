@@ -5,7 +5,6 @@
 typedef struct file_t {
   strbuf_t path;
   strbuf_t content;
-  size_t size;
 } file_t;
 
 typedef struct pos_t {

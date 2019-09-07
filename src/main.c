@@ -1,3 +1,4 @@
+#include "analyzer.h"
 #include "colors.h"
 #include "context.h"
 #include "parser.h"
@@ -26,7 +27,7 @@ void print_error(str_builder_t *sb, error_t *err) {
   size_t min_line = err->pos.line - 1;
   size_t max_line = err->pos.line + 1;
 
-  const int ndigits = floor(log10(abs(max_line))) + 1;
+  const int ndigits = floor(log10(max_line)) + 1;
 
   char *line_buf = start;
 
@@ -82,41 +83,28 @@ int main(int argc, char *argv[]) {
   token_slice_t tokens;
   error_set_t result = scanner_scan(&scanner, &file, &tokens);
   if (result.errors.count > 0) {
-    For(err, result.errors) {
-      print_error(&ctx.sb, err);
-      /* printf( */
-      /*     "%zu:%zu: %.*s\n", */
-      /*     err->pos.line, */
-      /*     err->pos.col, */
-      /*     (int)err->msg.count, */
-      /*     err->msg.buf); */
-    }
-
+    For(err, result.errors) { print_error(&ctx.sb, err); }
     exit(1);
   }
-
-  /* For(token, tokens) { */
-  /*   strbuf_t tok_str = token_to_string(token); */
-  /*   printf("%.*s\n", (int)tok_str.count, tok_str.buf); */
-  /* } */
 
   parser_t parser;
   parser_init(&parser, &ctx);
 
-  ast_t ast = {0};
+  ast_t ast;
+  memset(&ast, 0, sizeof(ast));
   result = parser_parse(&parser, &file, tokens, &ast);
 
   if (result.errors.count > 0) {
-    For(err, result.errors) {
-      print_error(&ctx.sb, err);
-      /* printf( */
-      /*     "%zu:%zu: %.*s\n", */
-      /*     err->pos.line, */
-      /*     err->pos.col, */
-      /*     (int)err->msg.count, */
-      /*     err->msg.buf); */
-    }
+    For(err, result.errors) { print_error(&ctx.sb, err); }
+    exit(1);
+  }
 
+  analyzer_t analyzer;
+  analyzer_init(&analyzer, &ctx);
+
+  result = analyzer_analyze(&analyzer, &ast);
+  if (result.errors.count > 0) {
+    For(err, result.errors) { print_error(&ctx.sb, err); }
     exit(1);
   }
 

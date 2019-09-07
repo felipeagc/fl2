@@ -5,6 +5,8 @@ MyStruct :: struct {
 
 }
 
+main :: struct {}
+
 main :: proc () {
   a : i32 = hello.asd();
   b := hello.asd;
@@ -20,4 +22,6 @@ main :: proc () {
     a :: hello.asd;
     b := hello.asd;
   }
+
+  derp :: proc () {}
 }
