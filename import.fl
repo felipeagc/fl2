@@ -1,27 +1,18 @@
-hello :: import "hello.fl";
+hello :: import "other.fl";
 using import "hello.fl";
 
 MyStruct :: struct {
 
 }
 
-main :: struct {}
-
 main :: proc () {
-  a : i32 = hello.asd();
-  b := hello.asd;
-  b := hello.asd;
+  b := (hello.puts())();
+  b := hello.puts;
 
-  hello :: proc () {
-    a = asdasd.asdasd;
-  }
-
-  hello.asd = 123;
+  hello.puts = 123;
 
   derp :: proc () {
-    a :: hello.asd;
-    b := hello.asd;
+    a :: hello.puts;
+    b := hello.puts;
   }
-
-  derp :: proc () {}
 }

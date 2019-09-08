@@ -1,6 +1,7 @@
 #pragma once
 
 #include "strbuf.h"
+#include "position.h"
 
 #define TRY(result)                                                            \
   do {                                                                         \

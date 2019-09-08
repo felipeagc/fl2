@@ -1,5 +1,6 @@
 #include "scope.h"
 
+#include "ast.h"
 #include <assert.h>
 
 void scope_init(scope_t *s, scope_t *parent, size_t size) {
@@ -8,13 +9,20 @@ void scope_init(scope_t *s, scope_t *parent, size_t size) {
   s->parent = parent;
 }
 
-scope_entry_t *scope_add(scope_t *s, ctx_t *ctx, strbuf_t name) {
-  scope_entry_t *entry = bump_alloc(&ctx->alloc, sizeof(scope_entry_t));
-  table_set(&s->table, name, entry);
-  return entry;
+symbol_t *scope_add(scope_t *s, ctx_t *ctx, strbuf_t name) {
+  symbol_t *symbol = bump_alloc(&ctx->alloc, sizeof(symbol_t));
+  table_set(&s->table, name, symbol);
+  return symbol;
 }
 
-scope_entry_t *scope_get(scope_t *s, strbuf_t name) {
+symbol_t *scope_get(scope_t *s, strbuf_t name) {
+  if (s == NULL) return NULL;
+  symbol_t *sym = scope_get(s->parent, name);
+  if (sym) return sym;
+  return table_get(&s->table, name);
+}
+
+symbol_t *scope_get_local(scope_t *s, strbuf_t name) {
   return table_get(&s->table, name);
 }
 

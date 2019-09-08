@@ -69,6 +69,7 @@ static inline token_t *consume(parser_t *p, token_type_t tok_type) {
 /* } */
 
 static bool parse_stmt(parser_t *p, stmt_t *stmt);
+static bool parse_expr(parser_t *p, expr_t *expr);
 
 static bool parse_import(parser_t *p, import_t *import) {
   bool res = true;
@@ -102,7 +103,7 @@ static bool parse_proc(parser_t *p, proc_t *proc) {
 
   if (!consume(p, TOKEN_PROC)) res = false;
   if (!consume(p, TOKEN_LPAREN)) res = false;
-  
+
   if (!consume(p, TOKEN_RPAREN)) res = false;
 
   if (!consume(p, TOKEN_LCURLY)) res = false;
@@ -141,46 +142,9 @@ static bool parse_primary(parser_t *p, primary_expr_t *primary) {
 
   case TOKEN_IDENT: {
     next(p);
-    ident_t ident;
-    ident.string = tok->string;
-    ident.child  = NULL;
-
-    ident_t *last_ident = &ident;
-
-    while (peek(p)->type == TOKEN_DOT && !is_at_end(p)) {
-      next(p);
-
-      tok = consume(p, TOKEN_IDENT);
-      if (!tok) {
-        res = false;
-        break;
-      }
-
-      last_ident->child         = bump_alloc(&p->ctx->alloc, sizeof(ident_t));
-      last_ident->child->string = tok->string;
-      last_ident->child->child  = NULL;
-
-      last_ident = last_ident->child;
-    }
 
     primary->kind  = PRIMARY_IDENT;
-    primary->ident = ident;
-
-    if (peek(p)->type == TOKEN_LPAREN) {
-      primary->kind            = PRIMARY_PROC_CALL;
-      primary->proc_call.ident = ident;
-
-      // TODO: proc call
-      if (!consume(p, TOKEN_LPAREN)) {
-        res = false;
-        SKIP_TO(TOKEN_SEMI);
-      }
-
-      if (!consume(p, TOKEN_RPAREN)) {
-        res = false;
-        SKIP_TO(TOKEN_SEMI);
-      }
-    }
+    primary->ident = tok->string;
   } break;
 
   case TOKEN_I8:
@@ -222,6 +186,73 @@ static bool parse_primary(parser_t *p, primary_expr_t *primary) {
   return res;
 }
 
+static bool parse_expr_expr(parser_t *p, expr_t *expr) {
+  bool res = true;
+
+  expr->pos = peek(p)->pos;
+
+  if (peek(p)->type == TOKEN_LPAREN) {
+    next(p);
+
+    expr->kind = EXPR_EXPR;
+    expr->expr = bump_alloc(&p->ctx->alloc, sizeof(expr_t));
+    if (!parse_expr(p, expr->expr)) res = false;
+
+    if (!consume(p, TOKEN_RPAREN)) res = false;
+  } else {
+    expr->kind = EXPR_PRIMARY;
+    if (!parse_primary(p, &expr->primary)) res = false;
+  }
+
+  expr->pos.len = peek(p)->pos.offset - expr->pos.offset;
+
+  return res;
+}
+
+static bool parse_proc_call(parser_t *p, expr_t *expr) {
+  bool res = true;
+
+  if (!parse_expr_expr(p, expr)) res = false;
+
+  while (peek(p)->type == TOKEN_LPAREN) {
+    next(p);
+
+    expr_t *new_expr = bump_alloc(&p->ctx->alloc, sizeof(expr_t));
+    *new_expr        = *expr;
+
+    expr->kind           = EXPR_PROC_CALL;
+    expr->proc_call.expr = new_expr;
+
+    if (!consume(p, TOKEN_RPAREN)) res = false;
+  }
+
+  return res;
+}
+
+static bool parse_access(parser_t *p, expr_t *expr) {
+  bool res = true;
+
+  if (!parse_proc_call(p, expr)) res = false;
+
+  if (peek(p)->type == TOKEN_DOT) {
+    next(p);
+
+    expr_t *left = bump_alloc(&p->ctx->alloc, sizeof(expr_t));
+    *left        = *expr;
+
+    expr_t *right = bump_alloc(&p->ctx->alloc, sizeof(expr_t));
+    right->pos    = peek(p)->pos;
+    if (!parse_access(p, right)) res = false;
+    right->pos.len = peek(p)->pos.offset - right->pos.offset;
+
+    expr->kind         = EXPR_ACCESS;
+    expr->access.left  = left;
+    expr->access.right = right;
+  }
+
+  return res;
+}
+
 static bool parse_struct_proc_import(parser_t *p, expr_t *expr) {
   switch (peek(p)->type) {
   case TOKEN_PROC: {
@@ -237,8 +268,7 @@ static bool parse_struct_proc_import(parser_t *p, expr_t *expr) {
     return parse_import(p, &expr->import);
   } break;
   default: {
-    expr->kind = EXPR_PRIMARY;
-    return parse_primary(p, &expr->primary);
+    return parse_access(p, expr);
   } break;
   }
 }

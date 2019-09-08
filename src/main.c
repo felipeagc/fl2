@@ -75,34 +75,14 @@ int main(int argc, char *argv[]) {
   ctx_init(&ctx);
 
   file_t file;
-  file_init(&file, STR(argv[1]));
-
-  scanner_t scanner;
-  scanner_init(&scanner, &ctx);
-
-  token_slice_t tokens;
-  error_set_t result = scanner_scan(&scanner, &file, &tokens);
-  if (result.errors.count > 0) {
-    For(err, result.errors) { print_error(&ctx.sb, err); }
+  if (!file_init(&file, &ctx, STR(argv[1]))) {
+    printf("Failed to open file: %.*s\n", (int)file.path.count, file.path.buf);
     exit(1);
   }
-
-  parser_t parser;
-  parser_init(&parser, &ctx);
 
   ast_t ast;
   memset(&ast, 0, sizeof(ast));
-  result = parser_parse(&parser, &file, tokens, &ast);
-
-  if (result.errors.count > 0) {
-    For(err, result.errors) { print_error(&ctx.sb, err); }
-    exit(1);
-  }
-
-  analyzer_t analyzer;
-  analyzer_init(&analyzer, &ctx);
-
-  result = analyzer_analyze(&analyzer, &ast);
+  error_set_t result = ctx_process_file(&ctx, &file, &ast);
   if (result.errors.count > 0) {
     For(err, result.errors) { print_error(&ctx.sb, err); }
     exit(1);

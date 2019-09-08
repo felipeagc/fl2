@@ -15,10 +15,10 @@ typedef struct block_t {
   stmt_slice_t stmts;
 } block_t;
 
-typedef struct ident_t {
-  strbuf_t string;
-  struct ident_t *child;
-} ident_t;
+typedef struct access_t {
+  expr_t *left;
+  expr_t *right;
+} access_t;
 
 typedef struct proc_t {
   block_t block;
@@ -29,7 +29,7 @@ typedef struct struct_t {
 } struct_t;
 
 typedef struct proc_call_t {
-  ident_t ident;
+  expr_t *expr;
   expr_slice_t params;
 } proc_call_t;
 
@@ -55,15 +55,13 @@ typedef struct primary_expr_t {
     PRIMARY_INT,
     PRIMARY_FLOAT,
     PRIMARY_IDENT,
-    PRIMARY_PROC_CALL,
     PRIMARY_PRIMITIVE_TYPE,
   } kind;
 
   union {
     int64_t i64;
     double f64;
-    ident_t ident;
-    proc_call_t proc_call;
+    strbuf_t ident;
     primitive_type_t prim_type;
   };
 } primary_expr_t;
@@ -73,16 +71,22 @@ typedef struct expr_t {
 
   enum {
     EXPR_PRIMARY,
+    EXPR_EXPR,
     EXPR_STRUCT,
     EXPR_PROC,
     EXPR_IMPORT,
+    EXPR_ACCESS,
+    EXPR_PROC_CALL,
   } kind;
 
   union {
     primary_expr_t primary;
+    struct expr_t *expr;
     struct_t str;
     proc_t proc;
     import_t import;
+    access_t access;
+    proc_call_t proc_call;
   };
 } expr_t;
 
@@ -125,3 +129,15 @@ typedef struct ast_t {
   file_t *file;
   block_t block;
 } ast_t;
+
+typedef struct symbol_t {
+  enum {
+    SYMBOL_NAMESPACE,
+    SYMBOL_CONST,
+    SYMBOL_VAR,
+  } kind;
+
+  union {
+    ast_t ast;
+  };
+} symbol_t;

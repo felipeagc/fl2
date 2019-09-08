@@ -2,8 +2,11 @@
 
 #include "strbuf.h"
 
+typedef struct ctx_t ctx_t;
+
 typedef struct file_t {
   strbuf_t path;
+  strbuf_t abs_path;
   strbuf_t content;
 } file_t;
 
@@ -15,6 +18,6 @@ typedef struct pos_t {
   size_t col;
 } pos_t;
 
-void file_init(file_t *file, strbuf_t path);
+bool file_init(file_t *file, ctx_t *ctx, strbuf_t path);
 
 void file_destroy(file_t *file);

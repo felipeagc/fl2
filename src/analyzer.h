@@ -7,6 +7,7 @@
 
 typedef struct analyzer_t {
   ctx_t *ctx;
+  ast_t *ast;
   error_slice_t errors;
 } analyzer_t;
 

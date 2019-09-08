@@ -10,6 +10,7 @@ compiler_lib_sources = [
 	'src/table.c',
 	'src/token.c',
 	'src/scope.c',
+	'src/filesystem.c',
 
 	'src/context.c',
 	'src/scanner.c',
