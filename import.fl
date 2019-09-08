@@ -1,5 +1,4 @@
 hello :: import "other.fl";
-using import "hello.fl";
 
 MyStruct :: struct {
 
@@ -7,7 +6,9 @@ MyStruct :: struct {
 
 main :: proc () {
   b := (hello.puts())();
-  b := hello.puts;
+
+  using import "entity.fl";
+  aa := Entity;
 
   hello.puts = 123;
 

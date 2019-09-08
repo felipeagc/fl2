@@ -10,6 +10,9 @@ typedef SLICE(expr_t) expr_slice_t;
 typedef struct stmt_t stmt_t;
 typedef SLICE(stmt_t) stmt_slice_t;
 
+typedef struct block_t block_t;
+typedef SLICE(block_t) block_slice_t;
+
 typedef struct block_t {
   scope_t scope;
   stmt_slice_t stmts;
@@ -66,6 +69,26 @@ typedef struct primary_expr_t {
   };
 } primary_expr_t;
 
+typedef struct unary_op_t {
+  enum {
+    UNOP_DEREF,
+    UNOP_NOT,
+  } kind;
+} unary_op_t;
+
+typedef struct binary_op_t {
+  enum {
+    BINOP_ADD,
+    BINOP_SUB,
+    BINOP_MUL,
+    BINOP_DIV,
+    BINOP_MOD,
+
+    BINOP_AND,
+    BINOP_OR,
+  } kind;
+} binary_op_t;
+
 typedef struct expr_t {
   pos_t pos;
 
@@ -77,6 +100,8 @@ typedef struct expr_t {
     EXPR_IMPORT,
     EXPR_ACCESS,
     EXPR_PROC_CALL,
+    EXPR_UNARY,
+    EXPR_BINARY,
   } kind;
 
   union {
@@ -87,6 +112,15 @@ typedef struct expr_t {
     import_t import;
     access_t access;
     proc_call_t proc_call;
+
+    struct {
+      union {
+        unary_op_t unary;
+        binary_op_t binary;
+      };
+      struct expr_t *left;
+      struct expr_t *right;
+    };
   };
 } expr_t;
 
