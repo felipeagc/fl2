@@ -102,9 +102,71 @@ static bool parse_proc(parser_t *p, proc_t *proc) {
   memset(proc, 0, sizeof(*proc));
 
   if (!consume(p, TOKEN_PROC)) res = false;
+
+  if (peek(p)->type == TOKEN_EXTERN) {
+    next(p);
+    proc->flags |= PROC_FLAG_EXTERN;
+  }
+
+  if (peek(p)->type == TOKEN_INLINE) {
+    next(p);
+    proc->flags |= PROC_FLAG_INLINE;
+  }
+
   if (!consume(p, TOKEN_LPAREN)) res = false;
 
+  while (peek(p)->type != TOKEN_RPAREN) {
+    // Parse arguments
+
+    proc_param_t param;
+
+    token_t *name = consume(p, TOKEN_IDENT);
+    if (!name) {
+      res = false;
+      SKIP_TO(TOKEN_RPAREN);
+      break;
+    }
+
+    param.name = name->string;
+
+    if (!consume(p, TOKEN_COLON)) res = false;
+
+    if (!parse_expr(p, &param.type)) res = false;
+
+    if (res) {
+      APPEND(proc->params, param);
+    }
+
+    if (peek(p)->type != TOKEN_RPAREN) {
+      if (!consume(p, TOKEN_COMMA)) {
+        res = false;
+        SKIP_TO(TOKEN_RPAREN);
+      }
+    }
+  }
+
   if (!consume(p, TOKEN_RPAREN)) res = false;
+
+  while (peek(p)->type != TOKEN_LCURLY) {
+    expr_t return_type;
+    if (!parse_expr(p, &return_type)) {
+      res = false;
+      SKIP_TO(TOKEN_LCURLY);
+      break;
+    }
+
+    if (res) {
+      APPEND(proc->return_types, return_type);
+    }
+
+    if (peek(p)->type != TOKEN_LCURLY) {
+      if (!consume(p, TOKEN_COMMA)) {
+        res = false;
+        SKIP_TO(TOKEN_LCURLY);
+        break;
+      }
+    }
+  }
 
   if (!consume(p, TOKEN_LCURLY)) res = false;
 

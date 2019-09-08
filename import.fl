@@ -1,19 +1,19 @@
 hello :: import "other.fl";
+using import "entity.fl";
 
 MyStruct :: struct {
 
 }
 
-main :: proc () {
-  b := (hello.puts())();
+main :: proc (a: i32, b: i32) {
+  bb := (hello.puts())();
 
-  using import "entity.fl";
   aa := Entity;
 
   hello.puts = 123;
 
   derp :: proc () {
-    a :: hello.puts;
+    aaa :: hello.puts;
     b := hello.puts;
   }
 }

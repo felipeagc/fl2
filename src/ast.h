@@ -23,7 +23,18 @@ typedef struct access_t {
   expr_t *right;
 } access_t;
 
+typedef struct proc_param_t proc_param_t;
+typedef SLICE(proc_param_t) proc_param_slice_t;
+
+typedef enum proc_flags_t {
+  PROC_FLAG_INLINE = 1 << 1,
+  PROC_FLAG_EXTERN = 1 << 2,
+} proc_flags_t;
+
 typedef struct proc_t {
+  proc_flags_t flags;
+  proc_param_slice_t params;
+  expr_slice_t return_types;
   block_t block;
 } proc_t;
 
@@ -124,6 +135,11 @@ typedef struct expr_t {
   };
 } expr_t;
 
+typedef struct proc_param_t {
+  strbuf_t name;
+  expr_t type;
+} proc_param_t;
+
 typedef struct var_decl_t {
   strbuf_t name;
   expr_t expr;
@@ -169,6 +185,8 @@ typedef struct symbol_t {
     SYMBOL_NAMESPACE,
     SYMBOL_CONST,
     SYMBOL_VAR,
+    SYMBOL_PROC,
+    SYMBOL_STRUCT,
   } kind;
 
   union {
