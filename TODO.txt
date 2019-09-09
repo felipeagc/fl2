@@ -1,0 +1,28 @@
+Parser
+- Parse type in var/const declaration
+
+- Unary exprs
+	dereference
+	slice (asd[123..123])
+	index (a[12])
+	array type ([]Something)
+
+- Binary exprs
+	addition / subtraction
+	multiplication / division
+	modulo
+	logic && and ||
+
+- Statements
+	if / else
+	for
+	return
+	break
+	continue
+
+
+Analyzer
+	check if expression is valid type
+	type checking
+	
+

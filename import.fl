@@ -5,7 +5,12 @@ MyStruct :: struct {
 
 }
 
-main :: proc (a: i32, b: i32) {
+asd :: proc (c: i32) {
+  d := 123;
+
+}
+
+main :: proc (a: asdasdasd, b: i32) {
   bb := (hello.puts())();
 
   aa := Entity;

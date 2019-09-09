@@ -5,7 +5,9 @@
 
 void scope_init(scope_t *s, scope_t *parent, size_t size) {
   memset(s, 0, sizeof(*s));
-  table_init(&s->table, size);
+  size_t actual_size = size;
+  if (actual_size == 0) actual_size = 10;
+  table_init(&s->table, actual_size);
   s->parent = parent;
 }
 

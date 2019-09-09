@@ -76,23 +76,6 @@ symbol_check_var_expr(analyzer_t *a, block_t *block, expr_t *expr) {
   } break;
 
   case EXPR_PROC: {
-    scope_init(
-        &expr->proc.block.scope, &block->scope, expr->proc.block.stmts.count);
-
-    For(param, expr->proc.params) {
-      if (scope_get_local(&expr->proc.block.scope, param->name)) {
-        error(
-            a,
-            expr->pos,
-            "duplicate parameter declaration: '%.*s'",
-            (int)param->name.count,
-            param->name.buf);
-        continue;
-      }
-
-      scope_add(&expr->proc.block.scope, a->ctx, param->name);
-    }
-
     analyze_block(a, &expr->proc.block);
   } break;
 
@@ -278,7 +261,6 @@ static void add_const_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
   case STMT_CONST_DECL: {
     if (scope_get(&block->scope, stmt->const_decl.name)) {
       error(a, stmt->pos, "duplicate constant declaration");
-      break;
     }
 
     symbol_t *sym = scope_add(&block->scope, a->ctx, stmt->const_decl.name);
@@ -322,12 +304,31 @@ static void add_const_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
       error_set_t result = ctx_process_file(a->ctx, file, &sym->ast);
       if (result.errors.count > 0) {
         For(err, result.errors) APPEND(a->errors, *err);
-        break;
       }
     } break;
 
     case EXPR_PROC: {
       sym->kind = SYMBOL_PROC;
+
+      scope_init(
+          &expr->proc.block.scope,
+          &block->scope,
+          expr->proc.block.stmts.count + expr->proc.params.count);
+
+      For(param, expr->proc.params) {
+        if (scope_get_local(&expr->proc.block.scope, param->name)) {
+          error(
+              a,
+              expr->pos,
+              "duplicate parameter declaration: '%.*s'",
+              (int)param->name.count,
+              param->name.buf);
+          continue;
+        }
+
+        scope_add(&expr->proc.block.scope, a->ctx, param->name);
+      }
+
     } break;
 
     case EXPR_STRUCT: {
