@@ -144,6 +144,7 @@ typedef struct var_decl_t {
   strbuf_t name;
   expr_t expr;
   expr_t type;
+  bool typed;
 } var_decl_t;
 
 typedef struct var_assign_t {
@@ -155,6 +156,7 @@ typedef struct const_decl_t {
   strbuf_t name;
   expr_t expr;
   expr_t type;
+  bool typed;
 } const_decl_t;
 
 typedef struct stmt_t {
@@ -193,3 +195,5 @@ typedef struct symbol_t {
     ast_t ast;
   };
 } symbol_t;
+
+bool is_expr_type(expr_t *expr, scope_t *scope);

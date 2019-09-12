@@ -15,10 +15,17 @@ main :: proc (a: asdasdasd, b: i32) {
 
   aa := Entity;
 
+
+  a: i32 = 123;
+
   hello.puts = 123;
 
   derp :: proc () {
     aaa :: hello.puts;
-    b := hello.puts;
+    b := hello.puts();
+
+    aaaa := derp();
   }
+
+  aaa := derp();
 }

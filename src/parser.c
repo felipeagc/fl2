@@ -353,13 +353,16 @@ static bool parse_decl_or_assign(parser_t *p, stmt_t *stmt) {
 
     if (!consume(p, TOKEN_COLON)) res = false;
 
+    expr_t type_expr;
+    bool got_type = false;
+
     token_t *tok = peek(p);
     switch (tok->type) {
     case TOKEN_ASSIGN:
     case TOKEN_COLON: next(p); break;
     default: {
-      expr_t type_expr;
       if (!parse_expr(p, &type_expr)) res = false;
+      got_type = true;
 
       switch (peek(p)->type) {
       case TOKEN_ASSIGN:
@@ -380,7 +383,9 @@ static bool parse_decl_or_assign(parser_t *p, stmt_t *stmt) {
       stmt->kind = STMT_VAR_DECL;
       if (name_tok) stmt->var_decl.name = name_tok->string;
 
-      stmt->var_decl.expr = expr;
+      stmt->var_decl.expr  = expr;
+      stmt->var_decl.type  = type_expr;
+      stmt->var_decl.typed = got_type;
 
       if (!consume(p, TOKEN_SEMI)) {
         res = false;
@@ -394,7 +399,9 @@ static bool parse_decl_or_assign(parser_t *p, stmt_t *stmt) {
       stmt->kind = STMT_CONST_DECL;
       if (name_tok) stmt->const_decl.name = name_tok->string;
 
-      stmt->const_decl.expr = expr;
+      stmt->const_decl.expr  = expr;
+      stmt->const_decl.type  = type_expr;
+      stmt->const_decl.typed = got_type;
 
       switch (stmt->const_decl.expr.kind) {
       case EXPR_STRUCT:
@@ -416,6 +423,7 @@ static bool parse_decl_or_assign(parser_t *p, stmt_t *stmt) {
     }
 
   } else {
+    // Variable assignment
     stmt->kind = STMT_VAR_ASSIGN;
 
     if (!parse_expr(p, &stmt->var_assign.assigned)) res = false;
