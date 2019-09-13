@@ -1,7 +1,8 @@
 #pragma once
 
-#include "strbuf.h"
 #include "position.h"
+#include "str_builder.h"
+#include "strbuf.h"
 
 #define TRY(result)                                                            \
   do {                                                                         \
@@ -27,3 +28,5 @@ typedef struct error_set_t {
   result_type_t type;
   error_slice_t errors;
 } error_set_t;
+
+void print_error(str_builder_t *sb, error_t *err);
