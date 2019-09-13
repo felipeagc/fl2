@@ -186,10 +186,13 @@ typedef struct symbol_t {
   enum {
     SYMBOL_NAMESPACE,
     SYMBOL_CONST,
-    SYMBOL_VAR,
+    SYMBOL_GLOBAL_VAR,
+    SYMBOL_LOCAL_VAR,
     SYMBOL_PROC,
     SYMBOL_STRUCT,
   } kind;
+
+  scope_t *scope;
 
   union {
     ast_t ast;

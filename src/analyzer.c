@@ -53,14 +53,16 @@ symbol_check_expr(analyzer_t *a, block_t *block, expr_t *expr) {
 
   case EXPR_ACCESS: {
     symbol_t *sym = symbol_check_expr(a, block, expr->access.left);
+    if (sym) {
+      switch (sym->kind) {
+      case SYMBOL_NAMESPACE: {
+        return symbol_check_expr(a, &sym->ast.block, expr->access.right);
+      } break;
 
-    switch (sym->kind) {
-    case SYMBOL_NAMESPACE: {
-      return symbol_check_expr(a, &sym->ast.block, expr->access.right);
-    } break;
-
-    default: break;
+      default: break;
+      }
     }
+
   } break;
 
   case EXPR_UNARY: {
@@ -94,15 +96,81 @@ symbol_check_expr(analyzer_t *a, block_t *block, expr_t *expr) {
 static void symbol_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
   switch (stmt->kind) {
   case STMT_CONST_DECL: {
-    symbol_check_expr(a, block, &stmt->const_decl.expr);
+    symbol_t *sym = symbol_check_expr(a, block, &stmt->const_decl.expr);
+
+    if (sym) {
+      switch (sym->kind) {
+      case SYMBOL_GLOBAL_VAR:
+      case SYMBOL_LOCAL_VAR: {
+        error(a, stmt->pos, "constant cannot refer to a variable");
+      } break;
+
+      default: break;
+      }
+    }
   } break;
 
   case STMT_VAR_DECL: {
-    symbol_check_expr(a, block, &stmt->var_decl.expr);
+    symbol_t *sym = symbol_check_expr(a, block, &stmt->var_decl.expr);
+    if (sym) {
+      switch (sym->kind) {
+      case SYMBOL_LOCAL_VAR: {
+        proc_t *var_proc   = scope_proc(sym->scope);
+        proc_t *block_proc = scope_proc(&block->scope);
+
+        if (var_proc != block_proc) {
+          error(a, stmt->pos, "cannot capture variables from outer functions");
+        }
+      } break;
+
+      default: break;
+      }
+    }
   } break;
 
   case STMT_VAR_ASSIGN: {
-    symbol_check_expr(a, block, &stmt->var_assign.expr);
+    symbol_t *assigned_sym =
+        symbol_check_expr(a, block, &stmt->var_assign.assigned);
+
+    if (assigned_sym) {
+      switch (assigned_sym->kind) {
+      case SYMBOL_GLOBAL_VAR:
+      case SYMBOL_LOCAL_VAR: break;
+
+      default: {
+        error(a, stmt->pos, "can only assign to a variable");
+      } break;
+      }
+
+      switch (assigned_sym->kind) {
+      case SYMBOL_LOCAL_VAR: {
+        proc_t *var_proc   = scope_proc(assigned_sym->scope);
+        proc_t *block_proc = scope_proc(&block->scope);
+
+        if (var_proc != block_proc) {
+          error(a, stmt->pos, "cannot capture variables from outer functions");
+        }
+      } break;
+
+      default: break;
+      }
+    }
+
+    symbol_t *sym = symbol_check_expr(a, block, &stmt->var_assign.expr);
+    if (sym) {
+      switch (sym->kind) {
+      case SYMBOL_LOCAL_VAR: {
+        proc_t *var_proc   = scope_proc(sym->scope);
+        proc_t *block_proc = scope_proc(&block->scope);
+
+        if (var_proc != block_proc) {
+          error(a, stmt->pos, "cannot capture variables from outer functions");
+        }
+      } break;
+
+      default: break;
+      }
+    }
   } break;
 
   case STMT_USING: {
@@ -172,6 +240,8 @@ static void add_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
           &block->scope,
           expr->proc.block.stmts.count + expr->proc.params.count);
 
+      expr->proc.block.scope.proc = &expr->proc;
+
       For(param, expr->proc.params) {
         if (scope_get_local(&expr->proc.block.scope, param->name)) {
           error(
@@ -183,7 +253,8 @@ static void add_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
           continue;
         }
 
-        scope_add(&expr->proc.block.scope, a->ctx, param->name);
+        symbol_t *sym = scope_add(&expr->proc.block.scope, a->ctx, param->name);
+        sym->kind     = SYMBOL_LOCAL_VAR;
       }
 
     } break;
@@ -251,7 +322,9 @@ static void add_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
       break;
     }
 
-    scope_add(&block->scope, a->ctx, stmt->var_decl.name);
+    symbol_t *sym = scope_add(&block->scope, a->ctx, stmt->var_decl.name);
+    sym->kind     = (scope_proc(&block->scope) == NULL) ? SYMBOL_GLOBAL_VAR
+                                                    : SYMBOL_LOCAL_VAR;
   } break;
 
   default: break;

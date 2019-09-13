@@ -349,7 +349,6 @@ static bool parse_decl_or_assign(parser_t *p, stmt_t *stmt) {
   if (look(p, 0)->type == TOKEN_IDENT && look(p, 1)->type == TOKEN_COLON) {
     // Declaration
     token_t *name_tok = consume(p, TOKEN_IDENT);
-    if (!name_tok) res = false;
 
     if (!consume(p, TOKEN_COLON)) res = false;
 
@@ -361,10 +360,14 @@ static bool parse_decl_or_assign(parser_t *p, stmt_t *stmt) {
     case TOKEN_ASSIGN:
     case TOKEN_COLON: next(p); break;
     default: {
-      if (!parse_expr(p, &type_expr)) res = false;
-      got_type = true;
+      if (!parse_expr(p, &type_expr))
+        res = false;
+      else {
+        got_type = true;
+      }
 
-      switch (peek(p)->type) {
+      tok = peek(p);
+      switch (tok->type) {
       case TOKEN_ASSIGN:
       case TOKEN_COLON: next(p); break;
       default: {
@@ -380,8 +383,8 @@ static bool parse_decl_or_assign(parser_t *p, stmt_t *stmt) {
     switch (tok->type) {
     case TOKEN_ASSIGN: {
       // Variable declaration
-      stmt->kind = STMT_VAR_DECL;
-      if (name_tok) stmt->var_decl.name = name_tok->string;
+      stmt->kind          = STMT_VAR_DECL;
+      stmt->var_decl.name = name_tok->string;
 
       stmt->var_decl.expr  = expr;
       stmt->var_decl.type  = type_expr;
@@ -396,8 +399,8 @@ static bool parse_decl_or_assign(parser_t *p, stmt_t *stmt) {
     } break;
     case TOKEN_COLON: {
       // Constant declaration
-      stmt->kind = STMT_CONST_DECL;
-      if (name_tok) stmt->const_decl.name = name_tok->string;
+      stmt->kind            = STMT_CONST_DECL;
+      stmt->const_decl.name = name_tok->string;
 
       stmt->const_decl.expr  = expr;
       stmt->const_decl.type  = type_expr;

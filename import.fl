@@ -1,4 +1,3 @@
-hello :: import "other.fl";
 using import "entity.fl";
 
 MyStruct :: struct {
@@ -10,22 +9,31 @@ asd :: proc (c: i32) {
 
 }
 
+global := 123;
+
 main :: proc (a: asdasdasd, b: i32) {
+  hello :: import "other.fl";
+
   bb := (hello.puts())();
 
   aa := Entity;
 
+  other_const :: 123;
+  some_const :: other_const;
 
-  a: i32 = 123;
+  adghfdgh: u32 = 123;
+  bbb: i32 = 123;
 
-  hello.puts = 123;
 
   derp :: proc () {
     aaa :: hello.puts;
     b := hello.puts();
 
     aaaa := derp();
+    asdf := global;
+    asdf = b;
   }
+
 
   aaa := derp();
 }
