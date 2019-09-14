@@ -1,0 +1,7 @@
+main :: proc () {
+  a := 123;
+
+  other_proc :: proc () {
+    a = 321;
+  }
+}

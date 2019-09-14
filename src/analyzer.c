@@ -75,6 +75,7 @@ symbol_check_expr(analyzer_t *a, block_t *block, expr_t *expr) {
 
   case EXPR_PROC_CALL: {
     symbol_check_expr(a, block, expr->proc_call.expr);
+    For(param, expr->proc_call.params) { symbol_check_expr(a, block, param); }
     return NULL;
   } break;
 

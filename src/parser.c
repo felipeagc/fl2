@@ -284,6 +284,20 @@ static bool parse_proc_call(parser_t *p, expr_t *expr) {
 
     expr->kind           = EXPR_PROC_CALL;
     expr->proc_call.expr = new_expr;
+    memset(&expr->proc_call.params, 0, sizeof(expr->proc_call.params));
+
+    while (peek(p)->type != TOKEN_RPAREN && !is_at_end(p)) {
+      expr_t param;
+      memset(&param, 0, sizeof(param));
+      if (!parse_expr(p, &param))
+        res = false;
+      else
+        APPEND(expr->proc_call.params, param);
+
+      if (peek(p)->type != TOKEN_RPAREN) {
+        if (!consume(p, TOKEN_COMMA)) res = false;
+      }
+    }
 
     if (!consume(p, TOKEN_RPAREN)) res = false;
   }
