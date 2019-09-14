@@ -12,7 +12,9 @@ asd :: proc (c: i32) {
 global := 123;
 
 main :: proc (a: asdasdasd, b: i32) {
+
   hello :: import "other.fl";
+  using hello;
 
   bb := (hello.puts())();
 
@@ -24,16 +26,17 @@ main :: proc (a: asdasdasd, b: i32) {
   adghfdgh: u32 = 123;
   bbb: i32 = 123;
 
-
   derp :: proc () {
     aaa :: hello.puts;
     b := hello.puts();
 
     aaaa := derp();
     asdf := global;
-    asdf = b;
   }
 
+  {
+
+  }
 
   aaa := derp();
 }

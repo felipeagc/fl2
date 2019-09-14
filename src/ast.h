@@ -113,6 +113,7 @@ typedef struct expr_t {
     EXPR_PROC_CALL,
     EXPR_UNARY,
     EXPR_BINARY,
+    EXPR_BLOCK,
   } kind;
 
   union {
@@ -123,6 +124,7 @@ typedef struct expr_t {
     import_t import;
     access_t access;
     proc_call_t proc_call;
+    block_t block;
 
     struct {
       union {
@@ -162,10 +164,12 @@ typedef struct const_decl_t {
 typedef struct stmt_t {
   pos_t pos;
   enum {
+    STMT_DUMMY,
     STMT_VAR_DECL,
     STMT_VAR_ASSIGN,
     STMT_CONST_DECL,
     STMT_USING,
+    STMT_EXPR,
   } kind;
   union {
     var_decl_t var_decl;
@@ -184,6 +188,7 @@ typedef struct ast_t {
 
 typedef struct symbol_t {
   enum {
+    SYMBOL_DUMMY,
     SYMBOL_NAMESPACE,
     SYMBOL_CONST,
     SYMBOL_GLOBAL_VAR,

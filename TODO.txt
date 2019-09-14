@@ -1,6 +1,4 @@
 Parser
-- Parse type in var/const declaration
-
 - Unary exprs
 	dereference
 	slice (asd[123..123])

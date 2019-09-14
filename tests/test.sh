@@ -1,30 +1,32 @@
 #!/bin/sh
 
-TESTS_DIR=$2
 FL=$1
+TESTS_DIR=$2
 FL_TMP="/tmp/fl_tmp"
-SUCCESS=1
+RESULT=0
 
 for file in $TESTS_DIR/valid/*; do
+	echo "Testing $file"
 	$FL "$file" > $FL_TMP
 	if [ $? -eq 1 ]; then
 		echo "Valid program was not compiled: $file"
 		cat $FL_TMP
-		SUCCESS=0
+		RESULT=1
 	fi
 done
 
 for file in $TESTS_DIR/invalid/*; do
+	echo "Testing $file"
 	$FL "$file" > $FL_TMP
 	if [ $? -eq 0 ]; then
 		echo "Invalid program was compiled: $file"
-		SUCCESS=0
+		RESULT=1
 	fi
 done
 
-if [ $SUCCESS -eq 1 ]; then
+
+if [ $RESULT -eq 0 ]; then
 	echo "Tests executed successfully"
-	exit 0
 fi
 
-exit 1
+exit $RESULT

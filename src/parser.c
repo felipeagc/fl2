@@ -335,15 +335,46 @@ static bool parse_struct_proc_import(parser_t *p, expr_t *expr) {
   }
 }
 
+static bool parse_block_expr(parser_t *p, expr_t *expr) {
+  bool res = true;
+
+  switch (peek(p)->type) {
+  case TOKEN_LCURLY: {
+    next(p);
+
+    memset(&expr->block, 0, sizeof(expr->block));
+
+    expr->kind = EXPR_BLOCK;
+    while (peek(p)->type != TOKEN_RCURLY && !is_at_end(p)) {
+      stmt_t stmt;
+      memset(&stmt, 0, sizeof(stmt));
+      if (parse_stmt(p, &stmt)) {
+        APPEND(expr->block.stmts, stmt);
+      } else {
+        res = false;
+      }
+    }
+
+    if (!consume(p, TOKEN_RCURLY)) res = false;
+  } break;
+
+  default: {
+    return parse_struct_proc_import(p, expr);
+  } break;
+  }
+
+  return res;
+}
+
 static bool parse_expr(parser_t *p, expr_t *expr) {
   memset(expr, 0, sizeof(*expr));
   expr->pos     = peek(p)->pos;
-  bool res      = parse_struct_proc_import(p, expr);
+  bool res      = parse_block_expr(p, expr);
   expr->pos.len = peek(p)->pos.offset - expr->pos.offset;
   return res;
 }
 
-static bool parse_decl_or_assign(parser_t *p, stmt_t *stmt) {
+static bool parse_decl_or_assign_or_stmt_expr(parser_t *p, stmt_t *stmt) {
   bool res = true;
 
   if (look(p, 0)->type == TOKEN_IDENT && look(p, 1)->type == TOKEN_COLON) {
@@ -408,6 +439,7 @@ static bool parse_decl_or_assign(parser_t *p, stmt_t *stmt) {
 
       switch (stmt->const_decl.expr.kind) {
       case EXPR_STRUCT:
+      case EXPR_BLOCK:
       case EXPR_PROC: break;
       default: {
         if (!consume(p, TOKEN_SEMI)) {
@@ -426,16 +458,36 @@ static bool parse_decl_or_assign(parser_t *p, stmt_t *stmt) {
     }
 
   } else {
-    // Variable assignment
-    stmt->kind = STMT_VAR_ASSIGN;
+    expr_t expr;
+    memset(&expr, 0, sizeof(expr));
+    if (!parse_expr(p, &expr)) res = false;
 
-    if (!parse_expr(p, &stmt->var_assign.assigned)) res = false;
+    switch (peek(p)->type) {
+    case TOKEN_ASSIGN: {
+      // Variable assignment
+      next(p);
 
-    if (!consume(p, TOKEN_ASSIGN)) res = false;
+      stmt->kind                = STMT_VAR_ASSIGN;
+      stmt->var_assign.assigned = expr;
+      if (!parse_expr(p, &stmt->var_assign.expr)) res = false;
 
-    if (!parse_expr(p, &stmt->var_assign.expr)) res = false;
+      if (!consume(p, TOKEN_SEMI)) res = false;
+    } break;
+    default: {
+      // Expression statement
+      stmt->kind = STMT_EXPR;
+      stmt->expr = expr;
 
-    if (!consume(p, TOKEN_SEMI)) res = false;
+      switch (stmt->expr.kind) {
+      case EXPR_PROC:
+      case EXPR_STRUCT:
+      case EXPR_BLOCK: break;
+      default: {
+        if (!consume(p, TOKEN_SEMI)) res = false;
+      } break;
+      }
+    } break;
+    }
   }
 
   return res;
@@ -458,14 +510,15 @@ static bool parse_stmt(parser_t *p, stmt_t *stmt) {
 
     switch (stmt->expr.kind) {
     case EXPR_STRUCT:
-    case EXPR_PROC: break;
+    case EXPR_PROC:
+    case EXPR_BLOCK: break;
     default: {
       if (!consume(p, TOKEN_SEMI)) res = false;
     } break;
     }
   } break;
   default: {
-    if (!parse_decl_or_assign(p, stmt)) res = false;
+    if (!parse_decl_or_assign_or_stmt_expr(p, stmt)) res = false;
   } break;
   }
 

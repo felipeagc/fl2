@@ -74,7 +74,8 @@ symbol_check_expr(analyzer_t *a, block_t *block, expr_t *expr) {
   } break;
 
   case EXPR_PROC_CALL: {
-    return symbol_check_expr(a, block, expr->proc_call.expr);
+    symbol_check_expr(a, block, expr->proc_call.expr);
+    return NULL;
   } break;
 
   case EXPR_PROC: {
@@ -86,6 +87,10 @@ symbol_check_expr(analyzer_t *a, block_t *block, expr_t *expr) {
   } break;
 
   case EXPR_IMPORT: {
+
+  } break;
+
+  case EXPR_BLOCK: {
 
   } break;
   }
@@ -173,11 +178,37 @@ static void symbol_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
     }
   } break;
 
-  case STMT_USING: {
+  case STMT_EXPR: {
     symbol_check_expr(a, block, &stmt->expr);
   } break;
 
-  default: break;
+  case STMT_USING: {
+    symbol_t *sym = symbol_check_expr(a, block, &stmt->expr);
+
+    switch (stmt->expr.kind) {
+    case EXPR_IMPORT: break;
+
+    default: {
+      if (sym) {
+        switch (sym->kind) {
+        case SYMBOL_NAMESPACE: break;
+
+        default: {
+          error(
+              a,
+              stmt->pos,
+              "'using' expression does not refer to a valid symbol");
+        } break;
+        }
+      } else {
+        error(a, stmt->pos, "'using' invalid expression");
+      }
+    } break;
+    }
+
+  } break;
+
+  case STMT_DUMMY: break;
   }
 }
 
@@ -185,7 +216,7 @@ static void add_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
   switch (stmt->kind) {
   case STMT_CONST_DECL: {
     if (scope_get(&block->scope, stmt->const_decl.name)) {
-      error(a, stmt->pos, "duplicate constant declaration");
+      error(a, stmt->pos, "duplicate declaration");
     }
 
     symbol_t *sym = scope_add(&block->scope, a->ctx, stmt->const_decl.name);
@@ -234,29 +265,6 @@ static void add_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
 
     case EXPR_PROC: {
       sym->kind = SYMBOL_PROC;
-
-      scope_init(
-          &expr->proc.block.scope,
-          &block->scope,
-          expr->proc.block.stmts.count + expr->proc.params.count);
-
-      expr->proc.block.scope.proc = &expr->proc;
-
-      For(param, expr->proc.params) {
-        if (scope_get_local(&expr->proc.block.scope, param->name)) {
-          error(
-              a,
-              expr->pos,
-              "duplicate parameter declaration: '%.*s'",
-              (int)param->name.count,
-              param->name.buf);
-          continue;
-        }
-
-        symbol_t *sym = scope_add(&expr->proc.block.scope, a->ctx, param->name);
-        sym->kind     = SYMBOL_LOCAL_VAR;
-      }
-
     } break;
 
     case EXPR_STRUCT: {
@@ -318,7 +326,7 @@ static void add_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
 
   case STMT_VAR_DECL: {
     if (scope_get_local(&block->scope, stmt->var_decl.name)) {
-      error(a, stmt->pos, "duplicate variable declaration");
+      error(a, stmt->pos, "duplicate declaration");
       break;
     }
 
@@ -341,10 +349,42 @@ static void
 expr_analyze_child_block(analyzer_t *a, block_t *block, expr_t *expr) {
   switch (expr->kind) {
   case EXPR_PROC: {
+    scope_init(
+        &expr->proc.block.scope,
+        &block->scope,
+        expr->proc.block.stmts.count + expr->proc.params.count);
+
+    expr->proc.block.scope.proc = &expr->proc;
+
+    For(param, expr->proc.params) {
+      if (scope_get_local(&expr->proc.block.scope, param->name)) {
+        error(
+            a,
+            expr->pos,
+            "duplicate parameter declaration: '%.*s'",
+            (int)param->name.count,
+            param->name.buf);
+        continue;
+      }
+
+      symbol_t *sym = scope_add(&expr->proc.block.scope, a->ctx, param->name);
+      sym->kind     = SYMBOL_LOCAL_VAR;
+    }
+
     For(stmt, expr->proc.block.stmts) {
       add_stmt(a, &expr->proc.block, stmt);
       symbol_check_stmt(a, &expr->proc.block, stmt);
       stmt_analyze_child_block(a, &expr->proc.block, stmt);
+    }
+  } break;
+
+  case EXPR_BLOCK: {
+    scope_init(&expr->block.scope, &block->scope, expr->block.stmts.count);
+
+    For(stmt, expr->block.stmts) {
+      add_stmt(a, &expr->block, stmt);
+      symbol_check_stmt(a, &expr->block, stmt);
+      stmt_analyze_child_block(a, &expr->block, stmt);
     }
   } break;
 
@@ -365,6 +405,10 @@ stmt_analyze_child_block(analyzer_t *a, block_t *block, stmt_t *stmt) {
 
   case STMT_VAR_ASSIGN: {
     expr_analyze_child_block(a, block, &stmt->var_assign.expr);
+  } break;
+
+  case STMT_EXPR: {
+    expr_analyze_child_block(a, block, &stmt->expr);
   } break;
 
   default: break;
