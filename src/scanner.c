@@ -129,6 +129,14 @@ static void scan_identifier(scanner_t *s) {
     token.type = TOKEN_I64;
     APPEND(s->tokens, token);
     return;
+  } else if (strbuf_cmp(ident, STR("f32"))) {
+    token.type = TOKEN_F32;
+    APPEND(s->tokens, token);
+    return;
+  } else if (strbuf_cmp(ident, STR("f64"))) {
+    token.type = TOKEN_F64;
+    APPEND(s->tokens, token);
+    return;
   } else if (strbuf_cmp(ident, STR("void"))) {
     token.type = TOKEN_VOID;
     APPEND(s->tokens, token);

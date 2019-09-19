@@ -43,6 +43,8 @@ char *TOKEN_STRINGS[] = {
     [TOKEN_I16] = "i16",
     [TOKEN_I32] = "i32",
     [TOKEN_I64] = "i64",
+    [TOKEN_F32] = "f32",
+    [TOKEN_F64] = "f64",
 
     [TOKEN_BOOL] = "bool",
     [TOKEN_VOID] = "void",

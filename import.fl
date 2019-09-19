@@ -1,10 +1,11 @@
-using import "entity.fl";
+other :: import "entity.fl";
+using other;
 
 MyStruct :: struct {
 
 }
 
-MyStructAlias :: MyStruct;
+MyStructAlias :: (MyStruct);
 
 asd :: proc (c: i32) {
   d := 123;
@@ -16,11 +17,13 @@ global := 123;
 
 main :: proc () {
   hello :: (import "other.fl");
-  using hello;
+  using (hello);
 
   asdasdasd := puts();
 
   bb := (hello.puts())();
+
+  a : i64 : 123;
 
   aa := Entity;
 
@@ -29,10 +32,11 @@ main :: proc () {
 
   aaaaaaaa := hello.puts;
 
-  adghfdgh: u32 = 123;
-  bbb: Entity = 123;
+  adghfdgh: i64 = 123;
 
-  bbbb: MyStructAlias = 123;
+  adghfdghg: i64;
+  bbbb: other.Entity;
+  bbbbb: Entity;
 
   derp :: proc () {
     aaa :: hello.puts;

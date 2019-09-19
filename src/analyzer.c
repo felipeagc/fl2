@@ -27,6 +27,8 @@ static void error(analyzer_t *a, pos_t pos, const char *fmt, ...) {
 static void analyze_block_unordered(analyzer_t *a, block_t *block);
 static void analyze_block_ordered(analyzer_t *a, block_t *block);
 
+static symbol_t *symbol_check_expr(analyzer_t *a, block_t *block, expr_t *expr);
+
 static bool
 expr_as_type(analyzer_t *a, block_t *block, expr_t *expr, type_t *type) {
   expr = inner_expr(expr);
@@ -65,6 +67,27 @@ expr_as_type(analyzer_t *a, block_t *block, expr_t *expr, type_t *type) {
   } break;
 
   case EXPR_ACCESS: {
+    symbol_t *sym = symbol_check_expr(a, block, expr->access.left);
+
+    if (sym) {
+      switch (sym->kind) {
+      case SYMBOL_CONST_DECL: {
+        expr_t *decl_expr = inner_expr(&sym->const_decl->expr);
+
+        switch (decl_expr->kind) {
+        case EXPR_IMPORT: {
+          return expr_as_type(
+              a, &decl_expr->import.ast->block, expr->access.right, type);
+        } break;
+
+        default: break;
+        }
+      } break;
+
+      default: break;
+      }
+    }
+
   } break;
 
   case EXPR_UNARY: {
@@ -187,8 +210,12 @@ symbol_check_expr(analyzer_t *a, block_t *block, expr_t *expr) {
   return NULL;
 }
 
-static void
-type_check_expr(analyzer_t *a, block_t *block, expr_t *expr, type_t *out_type) {
+static void type_check_expr(
+    analyzer_t *a,
+    block_t *block,
+    expr_t *expr,
+    type_t *out_type,
+    type_t *expected_type) {
   expr = inner_expr(expr);
   memset(out_type, 0, sizeof(*out_type));
 
@@ -214,7 +241,7 @@ type_check_expr(analyzer_t *a, block_t *block, expr_t *expr, type_t *out_type) {
   } break;
 
   case EXPR_EXPR: {
-    return type_check_expr(a, block, expr->expr, out_type);
+    return type_check_expr(a, block, expr->expr, out_type, expected_type);
   } break;
 
   case EXPR_ACCESS: {
@@ -228,7 +255,11 @@ type_check_expr(analyzer_t *a, block_t *block, expr_t *expr, type_t *out_type) {
         case EXPR_IMPORT: {
 
           return type_check_expr(
-              a, &decl_expr->import.ast->block, expr->access.right, out_type);
+              a,
+              &decl_expr->import.ast->block,
+              expr->access.right,
+              out_type,
+              expected_type);
         } break;
 
         default: break;
@@ -267,6 +298,12 @@ type_check_expr(analyzer_t *a, block_t *block, expr_t *expr, type_t *out_type) {
   case EXPR_BLOCK: {
 
   } break;
+  }
+
+  if (expected_type) {
+    if (!equivalent_types(expected_type, out_type)) {
+      error(a, expr->pos, "type mismatch");
+    }
   }
 }
 
@@ -412,7 +449,7 @@ static void symbol_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
   } break;
 
   case STMT_VAR_DECL: {
-    if (stmt->var_decl.typed) {
+    if (stmt->var_decl.flags & VAR_DECL_HAS_TYPE) {
       symbol_check_expr(a, block, &stmt->var_decl.type_expr);
     }
 
@@ -532,9 +569,11 @@ static void symbol_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
 static void type_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
   switch (stmt->kind) {
   case STMT_CONST_DECL: {
+    type_t type;
+    type_t *expected_type = NULL;
     if (stmt->const_decl.typed) {
-      type_t type_type;
-      if (!expr_as_type(a, block, &stmt->const_decl.type_expr, &type_type)) {
+      expected_type = &type;
+      if (!expr_as_type(a, block, &stmt->const_decl.type_expr, &type)) {
         error(
             a,
             stmt->const_decl.type_expr.pos,
@@ -542,14 +581,18 @@ static void type_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
       }
     }
 
-    type_t type;
-    type_check_expr(a, block, &stmt->const_decl.expr, &type);
+    type_t expr_type;
+    type_check_expr(
+        a, block, &stmt->const_decl.expr, &expr_type, expected_type);
   } break;
 
   case STMT_VAR_DECL: {
-    if (stmt->var_decl.typed) {
-      type_t type_type;
-      if (!expr_as_type(a, block, &stmt->var_decl.type_expr, &type_type)) {
+    type_t type;
+    type_t *expected_type = NULL;
+
+    if (stmt->var_decl.flags & VAR_DECL_HAS_TYPE) {
+      expected_type = &type;
+      if (!expr_as_type(a, block, &stmt->var_decl.type_expr, &type)) {
         error(
             a,
             stmt->var_decl.type_expr.pos,
@@ -557,15 +600,18 @@ static void type_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
       }
     }
 
-    type_t type;
-    type_check_expr(a, block, &stmt->var_decl.expr, &type);
+    if (stmt->var_decl.flags & VAR_DECL_HAS_EXPR) {
+      type_t expr_type;
+      type_check_expr(
+          a, block, &stmt->var_decl.expr, &expr_type, expected_type);
+    }
   } break;
 
   case STMT_VAR_ASSIGN: {
     type_t expr_type;
-    type_check_expr(a, block, &stmt->var_assign.expr, &expr_type);
+    type_check_expr(a, block, &stmt->var_assign.expr, &expr_type, NULL);
     type_t assigned_type;
-    type_check_expr(a, block, &stmt->var_assign.assigned, &assigned_type);
+    type_check_expr(a, block, &stmt->var_assign.assigned, &assigned_type, NULL);
 
     if (!equivalent_types(&expr_type, &assigned_type)) {
       error(a, stmt->pos, "type mismatch in variable assignment");
@@ -574,12 +620,12 @@ static void type_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
 
   case STMT_EXPR: {
     type_t type;
-    type_check_expr(a, block, &stmt->expr, &type);
+    type_check_expr(a, block, &stmt->expr, &type, NULL);
   } break;
 
   case STMT_USING: {
     type_t type;
-    type_check_expr(a, block, &stmt->expr, &type);
+    type_check_expr(a, block, &stmt->expr, &type, NULL);
   } break;
 
   case STMT_DUMMY: break;

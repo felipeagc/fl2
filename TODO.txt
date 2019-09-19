@@ -20,6 +20,7 @@ Parser
 
 
 Analyzer
+	make get_expr_sym function to replace some uses of symbol_check_expr
 	check if expression is valid type
 	type checking
 	

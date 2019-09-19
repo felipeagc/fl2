@@ -149,11 +149,16 @@ typedef struct proc_param_t {
   expr_t type;
 } proc_param_t;
 
+typedef enum var_decl_flags_t {
+  VAR_DECL_HAS_TYPE = 1 << 1,
+  VAR_DECL_HAS_EXPR = 1 << 2,
+} var_decl_flags_t;
+
 typedef struct var_decl_t {
+  var_decl_flags_t flags;
   strbuf_t name;
   expr_t expr;
   expr_t type_expr;
-  bool typed;
 } var_decl_t;
 
 typedef struct var_assign_t {

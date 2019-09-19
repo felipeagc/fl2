@@ -217,6 +217,8 @@ static bool parse_primary(parser_t *p, primary_expr_t *primary) {
   case TOKEN_U16:
   case TOKEN_U32:
   case TOKEN_U64:
+  case TOKEN_F32:
+  case TOKEN_F64:
   case TOKEN_BOOL:
   case TOKEN_VOID: {
     next(p);
@@ -232,6 +234,8 @@ static bool parse_primary(parser_t *p, primary_expr_t *primary) {
     case TOKEN_U16: primary->prim_type = PRIM_TYPE_U16; break;
     case TOKEN_U32: primary->prim_type = PRIM_TYPE_U32; break;
     case TOKEN_U64: primary->prim_type = PRIM_TYPE_U64; break;
+    case TOKEN_F32: primary->prim_type = PRIM_TYPE_F32; break;
+    case TOKEN_F64: primary->prim_type = PRIM_TYPE_F64; break;
     case TOKEN_BOOL: primary->prim_type = PRIM_TYPE_BOOL; break;
     case TOKEN_VOID: primary->prim_type = PRIM_TYPE_VOID; break;
     default: assert(0);
@@ -414,7 +418,8 @@ static bool parse_decl_or_assign_or_stmt_expr(parser_t *p, stmt_t *stmt) {
       tok = peek(p);
       switch (tok->type) {
       case TOKEN_ASSIGN:
-      case TOKEN_COLON: next(p); break;
+      case TOKEN_COLON:
+      case TOKEN_SEMI: next(p); break;
       default: {
         return error(p, tok->pos, "unexpected token, expected ':' or '='");
       } break;
@@ -422,18 +427,32 @@ static bool parse_decl_or_assign_or_stmt_expr(parser_t *p, stmt_t *stmt) {
     } break;
     }
 
-    expr_t expr;
-    if (!parse_expr(p, &expr)) res = false;
-
-    switch (tok->type) {
-    case TOKEN_ASSIGN: {
+    if (tok->type == TOKEN_SEMI) {
       // Variable declaration
       stmt->kind          = STMT_VAR_DECL;
       stmt->var_decl.name = name_tok->string;
 
+      stmt->var_decl.type_expr = type_expr;
+      if (got_type) stmt->var_decl.flags |= VAR_DECL_HAS_TYPE;
+
+      return res;
+    }
+
+    expr_t expr;
+    if (!parse_expr(p, &expr)) res = false;
+
+    switch (tok->type) {
+    case TOKEN_ASSIGN:
+    case TOKEN_SEMI: {
+      // Variable declaration
+      stmt->kind          = STMT_VAR_DECL;
+      stmt->var_decl.name = name_tok->string;
+
+      stmt->var_decl.flags |= VAR_DECL_HAS_EXPR;
+
       stmt->var_decl.expr      = expr;
       stmt->var_decl.type_expr = type_expr;
-      stmt->var_decl.typed     = got_type;
+      if (got_type) stmt->var_decl.flags |= VAR_DECL_HAS_TYPE;
 
       if (!consume(p, TOKEN_SEMI)) {
         res = false;
