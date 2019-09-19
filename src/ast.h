@@ -38,7 +38,12 @@ typedef struct proc_t {
   block_t block;
 } proc_t;
 
+typedef enum struct_flags_t {
+  STRUCT_FLAG_PACKED = 1 << 1,
+} struct_flags_t;
+
 typedef struct struct_t {
+  struct_flags_t flags;
 
 } struct_t;
 
@@ -51,18 +56,20 @@ typedef struct import_t {
   strbuf_t path;
 } import_t;
 
-typedef enum primitive_type_t {
-  PRIMITIVE_TYPE_I8,
-  PRIMITIVE_TYPE_I16,
-  PRIMITIVE_TYPE_I32,
-  PRIMITIVE_TYPE_I64,
-  PRIMITIVE_TYPE_U8,
-  PRIMITIVE_TYPE_U16,
-  PRIMITIVE_TYPE_U32,
-  PRIMITIVE_TYPE_U64,
-  PRIMITIVE_TYPE_BOOL,
-  PRIMITIVE_TYPE_VOID,
-} primitive_type_t;
+typedef enum prim_type_t {
+  PRIM_TYPE_I8,
+  PRIM_TYPE_I16,
+  PRIM_TYPE_I32,
+  PRIM_TYPE_I64,
+  PRIM_TYPE_U8,
+  PRIM_TYPE_U16,
+  PRIM_TYPE_U32,
+  PRIM_TYPE_U64,
+  PRIM_TYPE_F32,
+  PRIM_TYPE_F64,
+  PRIM_TYPE_BOOL,
+  PRIM_TYPE_VOID,
+} prim_type_t;
 
 typedef struct primary_expr_t {
   enum {
@@ -76,7 +83,7 @@ typedef struct primary_expr_t {
     int64_t i64;
     double f64;
     strbuf_t ident;
-    primitive_type_t prim_type;
+    prim_type_t prim_type;
   };
 } primary_expr_t;
 
@@ -145,7 +152,7 @@ typedef struct proc_param_t {
 typedef struct var_decl_t {
   strbuf_t name;
   expr_t expr;
-  expr_t type;
+  expr_t type_expr;
   bool typed;
 } var_decl_t;
 
@@ -157,7 +164,7 @@ typedef struct var_assign_t {
 typedef struct const_decl_t {
   strbuf_t name;
   expr_t expr;
-  expr_t type;
+  expr_t type_expr;
   bool typed;
 } const_decl_t;
 
@@ -201,6 +208,7 @@ typedef struct symbol_t {
 
   union {
     ast_t ast;
+    struct_t str;
   };
 } symbol_t;
 

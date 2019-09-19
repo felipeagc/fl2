@@ -23,8 +23,11 @@ main :: proc (a: asdasdasd, b: i32) {
   other_const :: 123;
   some_const :: other_const;
 
+  aaaaaaaa := hello.puts;
+
   adghfdgh: u32 = 123;
-  bbb: i32 = 123;
+  bbb: Entity = 123;
+
 
   derp :: proc () {
     aaa :: hello.puts;
@@ -35,10 +38,6 @@ main :: proc (a: asdasdasd, b: i32) {
   }
 
   derp()(1, 2);
-
-  {
-
-  }
 
   aaa := derp();
 }

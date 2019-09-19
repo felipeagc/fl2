@@ -3,6 +3,7 @@
 #include "filesystem.h"
 #include "parser.h"
 #include "scanner.h"
+#include "type.h"
 #include <assert.h>
 #include <stdio.h>
 
@@ -22,7 +23,82 @@ static void error(analyzer_t *a, pos_t pos, const char *fmt, ...) {
   APPEND(a->errors, err);
 }
 
-static void analyze_block(analyzer_t *a, block_t *block);
+static void analyze_block_unordered(analyzer_t *a, block_t *block);
+static void analyze_block_ordered(analyzer_t *a, block_t *block);
+
+static bool
+expr_as_type(analyzer_t *a, block_t *block, expr_t *expr, type_t *type) {
+  switch (expr->kind) {
+  case EXPR_PRIMARY: {
+
+    switch (expr->primary.kind) {
+    case PRIMARY_INT:
+    case PRIMARY_FLOAT: return false;
+
+    case PRIMARY_PRIMITIVE_TYPE: {
+      type->kind = TYPE_PRIMITIVE;
+      type->prim = expr->primary.prim_type;
+      return true;
+    } break;
+
+    case PRIMARY_IDENT: {
+      symbol_t *sym = scope_get(&block->scope, expr->primary.ident);
+      if (sym) {
+        switch (sym->kind) {
+        case SYMBOL_STRUCT: {
+          type->kind = TYPE_STRUCT;
+          type->str  = &sym->str;
+          return true;
+        } break;
+
+        default: break;
+        }
+      }
+    } break;
+    }
+
+  } break;
+
+  case EXPR_EXPR: {
+    return expr_as_type(a, block, expr->expr, type);
+  } break;
+
+  case EXPR_ACCESS: {
+  } break;
+
+  case EXPR_UNARY: {
+    // TODO
+  } break;
+
+  case EXPR_BINARY: {
+    // TODO
+    return false;
+  } break;
+
+  case EXPR_PROC_CALL: {
+    return false;
+  } break;
+
+  case EXPR_PROC: {
+    // TODO: proc type
+    return false;
+  } break;
+
+  case EXPR_STRUCT: {
+
+  } break;
+
+  case EXPR_IMPORT: {
+    return false;
+  } break;
+
+  case EXPR_BLOCK: {
+    return false;
+  } break;
+  }
+
+  return false;
+}
 
 static symbol_t *
 symbol_check_expr(analyzer_t *a, block_t *block, expr_t *expr) {
@@ -66,11 +142,11 @@ symbol_check_expr(analyzer_t *a, block_t *block, expr_t *expr) {
   } break;
 
   case EXPR_UNARY: {
-
+    // TODO
   } break;
 
   case EXPR_BINARY: {
-
+    // TODO
   } break;
 
   case EXPR_PROC_CALL: {
@@ -99,9 +175,214 @@ symbol_check_expr(analyzer_t *a, block_t *block, expr_t *expr) {
   return NULL;
 }
 
+static void
+type_check_expr(analyzer_t *a, block_t *block, expr_t *expr, type_t *out_type) {
+  memset(out_type, 0, sizeof(*out_type));
+
+  switch (expr->kind) {
+  case EXPR_PRIMARY: {
+    switch (expr->primary.kind) {
+    case PRIMARY_INT: {
+      out_type->kind = TYPE_PRIMITIVE;
+      out_type->prim = PRIM_TYPE_I64;
+    } break;
+
+    case PRIMARY_FLOAT: {
+      out_type->kind = TYPE_PRIMITIVE;
+      out_type->prim = PRIM_TYPE_F64;
+    } break;
+
+    case PRIMARY_PRIMITIVE_TYPE: break;
+
+    case PRIMARY_IDENT: {
+
+    } break;
+    }
+  } break;
+
+  case EXPR_EXPR: {
+    return type_check_expr(a, block, expr->expr, out_type);
+  } break;
+
+  case EXPR_ACCESS: {
+    symbol_t *sym = symbol_check_expr(a, block, expr->access.left);
+    if (sym) {
+      switch (sym->kind) {
+      case SYMBOL_NAMESPACE: {
+        return type_check_expr(
+            a, &sym->ast.block, expr->access.right, out_type);
+      } break;
+
+      default: break;
+      }
+    }
+  } break;
+
+  case EXPR_UNARY: {
+    // TODO
+  } break;
+
+  case EXPR_BINARY: {
+    // TODO
+  } break;
+
+  case EXPR_PROC_CALL: {
+
+  } break;
+
+  case EXPR_PROC: {
+
+  } break;
+
+  case EXPR_STRUCT: {
+
+  } break;
+
+  case EXPR_IMPORT: {
+
+  } break;
+
+  case EXPR_BLOCK: {
+
+  } break;
+  }
+}
+
+static void add_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
+  switch (stmt->kind) {
+  case STMT_CONST_DECL: {
+    if (scope_get(&block->scope, stmt->const_decl.name)) {
+      error(a, stmt->pos, "duplicate declaration");
+    }
+
+    symbol_t *sym = scope_add(&block->scope, a->ctx, stmt->const_decl.name);
+    sym->kind     = SYMBOL_CONST;
+
+    expr_t *expr = &stmt->const_decl.expr;
+
+    switch (expr->kind) {
+    case EXPR_IMPORT: {
+      file_t *file = bump_alloc(&a->ctx->alloc, sizeof(file_t));
+
+      char *dir = get_file_dir(a->ast->file->abs_path.buf);
+
+      strbuf_t full_path;
+      full_path.count = strlen(dir) + 1 + expr->import.path.count;
+      full_path.cap   = full_path.count + 1;
+      full_path.buf   = bump_alloc(&a->ctx->alloc, full_path.cap);
+
+      snprintf(
+          full_path.buf,
+          full_path.cap,
+          "%s/%.*s",
+          dir,
+          (int)expr->import.path.count,
+          expr->import.path.buf);
+
+      free(dir);
+
+      if (!file_init(file, a->ctx, full_path)) {
+        error(
+            a,
+            expr->pos,
+            "invalid import path: '%.*s'",
+            (int)expr->import.path.count,
+            expr->import.path.buf);
+        break;
+      }
+
+      sym->kind = SYMBOL_NAMESPACE;
+
+      error_set_t result = ctx_process_file(a->ctx, file, &sym->ast);
+      if (result.errors.count > 0) {
+        For(err, result.errors) APPEND(a->errors, *err);
+      }
+    } break;
+
+    case EXPR_PROC: {
+      sym->kind = SYMBOL_PROC;
+    } break;
+
+    case EXPR_STRUCT: {
+      sym->kind = SYMBOL_STRUCT;
+      sym->str  = expr->str;
+    } break;
+
+    default: break;
+    }
+  } break;
+
+  case STMT_USING: {
+    expr_t *expr = &stmt->expr;
+
+    switch (expr->kind) {
+    case EXPR_IMPORT: {
+      file_t *file = bump_alloc(&a->ctx->alloc, sizeof(file_t));
+
+      char *dir = get_file_dir(a->ast->file->abs_path.buf);
+
+      strbuf_t full_path;
+      full_path.count = strlen(dir) + 1 + expr->import.path.count;
+      full_path.cap   = full_path.count + 1;
+      full_path.buf   = bump_alloc(&a->ctx->alloc, full_path.cap);
+
+      snprintf(
+          full_path.buf,
+          full_path.cap,
+          "%s/%.*s",
+          dir,
+          (int)expr->import.path.count,
+          expr->import.path.buf);
+
+      free(dir);
+
+      if (!file_init(file, a->ctx, full_path)) {
+        error(
+            a,
+            expr->pos,
+            "invalid import path: '%.*s'",
+            (int)expr->import.path.count,
+            expr->import.path.buf);
+        break;
+      }
+
+      ast_t *ast         = bump_alloc(&a->ctx->alloc, sizeof(ast_t));
+      error_set_t result = ctx_process_file(a->ctx, file, ast);
+      if (result.errors.count > 0) {
+        For(err, result.errors) APPEND(a->errors, *err);
+        break;
+      }
+
+      APPEND(block->scope.siblings, ast->block.scope);
+    } break;
+
+    default: break;
+    }
+
+  } break;
+
+  case STMT_VAR_DECL: {
+    if (scope_get_local(&block->scope, stmt->var_decl.name)) {
+      error(a, stmt->pos, "duplicate declaration");
+      break;
+    }
+
+    symbol_t *sym = scope_add(&block->scope, a->ctx, stmt->var_decl.name);
+    sym->kind     = (scope_proc(&block->scope) == NULL) ? SYMBOL_GLOBAL_VAR
+                                                    : SYMBOL_LOCAL_VAR;
+  } break;
+
+  default: break;
+  }
+}
+
 static void symbol_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
   switch (stmt->kind) {
   case STMT_CONST_DECL: {
+    if (stmt->const_decl.typed) {
+      symbol_check_expr(a, block, &stmt->const_decl.type_expr);
+    }
+
     symbol_t *sym = symbol_check_expr(a, block, &stmt->const_decl.expr);
 
     if (sym) {
@@ -117,6 +398,10 @@ static void symbol_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
   } break;
 
   case STMT_VAR_DECL: {
+    if (stmt->var_decl.typed) {
+      symbol_check_expr(a, block, &stmt->var_decl.type_expr);
+    }
+
     symbol_t *sym = symbol_check_expr(a, block, &stmt->var_decl.expr);
     if (sym) {
       switch (sym->kind) {
@@ -213,130 +498,60 @@ static void symbol_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
   }
 }
 
-static void add_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
+static void type_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
   switch (stmt->kind) {
   case STMT_CONST_DECL: {
-    if (scope_get(&block->scope, stmt->const_decl.name)) {
-      error(a, stmt->pos, "duplicate declaration");
-    }
-
-    symbol_t *sym = scope_add(&block->scope, a->ctx, stmt->const_decl.name);
-    sym->kind     = SYMBOL_CONST;
-
-    expr_t *expr = &stmt->const_decl.expr;
-
-    switch (expr->kind) {
-    case EXPR_IMPORT: {
-      file_t *file = bump_alloc(&a->ctx->alloc, sizeof(file_t));
-
-      char *dir = get_file_dir(a->ast->file->abs_path.buf);
-
-      strbuf_t full_path;
-      full_path.count = strlen(dir) + 1 + expr->import.path.count;
-      full_path.cap   = full_path.count + 1;
-      full_path.buf   = bump_alloc(&a->ctx->alloc, full_path.cap);
-
-      snprintf(
-          full_path.buf,
-          full_path.cap,
-          "%s/%.*s",
-          dir,
-          (int)expr->import.path.count,
-          expr->import.path.buf);
-
-      free(dir);
-
-      if (!file_init(file, a->ctx, full_path)) {
+    if (stmt->const_decl.typed) {
+      type_t type_type;
+      if (!expr_as_type(a, block, &stmt->const_decl.type_expr, &type_type)) {
         error(
             a,
-            expr->pos,
-            "invalid import path: '%.*s'",
-            (int)expr->import.path.count,
-            expr->import.path.buf);
-        break;
+            stmt->const_decl.type_expr.pos,
+            "expression does not represent a type");
       }
-
-      sym->kind = SYMBOL_NAMESPACE;
-
-      error_set_t result = ctx_process_file(a->ctx, file, &sym->ast);
-      if (result.errors.count > 0) {
-        For(err, result.errors) APPEND(a->errors, *err);
-      }
-    } break;
-
-    case EXPR_PROC: {
-      sym->kind = SYMBOL_PROC;
-    } break;
-
-    case EXPR_STRUCT: {
-      sym->kind = SYMBOL_STRUCT;
-    } break;
-
-    default: break;
-    }
-  } break;
-
-  case STMT_USING: {
-    expr_t *expr = &stmt->expr;
-
-    switch (expr->kind) {
-    case EXPR_IMPORT: {
-      file_t *file = bump_alloc(&a->ctx->alloc, sizeof(file_t));
-
-      char *dir = get_file_dir(a->ast->file->abs_path.buf);
-
-      strbuf_t full_path;
-      full_path.count = strlen(dir) + 1 + expr->import.path.count;
-      full_path.cap   = full_path.count + 1;
-      full_path.buf   = bump_alloc(&a->ctx->alloc, full_path.cap);
-
-      snprintf(
-          full_path.buf,
-          full_path.cap,
-          "%s/%.*s",
-          dir,
-          (int)expr->import.path.count,
-          expr->import.path.buf);
-
-      free(dir);
-
-      if (!file_init(file, a->ctx, full_path)) {
-        error(
-            a,
-            expr->pos,
-            "invalid import path: '%.*s'",
-            (int)expr->import.path.count,
-            expr->import.path.buf);
-        break;
-      }
-
-      ast_t *ast         = bump_alloc(&a->ctx->alloc, sizeof(ast_t));
-      error_set_t result = ctx_process_file(a->ctx, file, ast);
-      if (result.errors.count > 0) {
-        For(err, result.errors) APPEND(a->errors, *err);
-        break;
-      }
-
-      APPEND(block->scope.siblings, ast->block.scope);
-    } break;
-
-    default: break;
     }
 
+    type_t type;
+    type_check_expr(a, block, &stmt->const_decl.expr, &type);
   } break;
 
   case STMT_VAR_DECL: {
-    if (scope_get_local(&block->scope, stmt->var_decl.name)) {
-      error(a, stmt->pos, "duplicate declaration");
-      break;
+    if (stmt->var_decl.typed) {
+      type_t type_type;
+      if (!expr_as_type(a, block, &stmt->var_decl.type_expr, &type_type)) {
+        error(
+            a,
+            stmt->var_decl.type_expr.pos,
+            "expression does not represent a type");
+      }
     }
 
-    symbol_t *sym = scope_add(&block->scope, a->ctx, stmt->var_decl.name);
-    sym->kind     = (scope_proc(&block->scope) == NULL) ? SYMBOL_GLOBAL_VAR
-                                                    : SYMBOL_LOCAL_VAR;
+    type_t type;
+    type_check_expr(a, block, &stmt->var_decl.expr, &type);
   } break;
 
-  default: break;
+  case STMT_VAR_ASSIGN: {
+    type_t expr_type;
+    type_check_expr(a, block, &stmt->var_assign.expr, &expr_type);
+    type_t assigned_type;
+    type_check_expr(a, block, &stmt->var_assign.assigned, &assigned_type);
+
+    if (!equivalent_types(&expr_type, &assigned_type)) {
+      error(a, stmt->pos, "type mismatch in variable assignment");
+    }
+  } break;
+
+  case STMT_EXPR: {
+    type_t type;
+    type_check_expr(a, block, &stmt->expr, &type);
+  } break;
+
+  case STMT_USING: {
+    type_t type;
+    type_check_expr(a, block, &stmt->expr, &type);
+  } break;
+
+  case STMT_DUMMY: break;
   }
 }
 
@@ -368,25 +583,22 @@ expr_analyze_child_block(analyzer_t *a, block_t *block, expr_t *expr) {
         continue;
       }
 
+      type_t type;
+      if (!expr_as_type(a, block, &param->type, &type)) {
+        error(a, param->type.pos, "expression does not represent a type");
+      }
+
       symbol_t *sym = scope_add(&expr->proc.block.scope, a->ctx, param->name);
       sym->kind     = SYMBOL_LOCAL_VAR;
     }
 
-    For(stmt, expr->proc.block.stmts) {
-      add_stmt(a, &expr->proc.block, stmt);
-      symbol_check_stmt(a, &expr->proc.block, stmt);
-      stmt_analyze_child_block(a, &expr->proc.block, stmt);
-    }
+    analyze_block_ordered(a, &expr->proc.block);
   } break;
 
   case EXPR_BLOCK: {
     scope_init(&expr->block.scope, &block->scope, expr->block.stmts.count);
 
-    For(stmt, expr->block.stmts) {
-      add_stmt(a, &expr->block, stmt);
-      symbol_check_stmt(a, &expr->block, stmt);
-      stmt_analyze_child_block(a, &expr->block, stmt);
-    }
+    analyze_block_ordered(a, &expr->block);
   } break;
 
   default: break;
@@ -416,11 +628,20 @@ stmt_analyze_child_block(analyzer_t *a, block_t *block, stmt_t *stmt) {
   }
 }
 
-static void analyze_block(analyzer_t *a, block_t *block) {
+static void analyze_block_unordered(analyzer_t *a, block_t *block) {
   For(stmt, block->stmts) { add_stmt(a, block, stmt); }
   For(stmt, block->stmts) { symbol_check_stmt(a, block, stmt); }
-  /* For(stmt, block->stmts) { type_check_stmt(a, block, stmt); } */
+  For(stmt, block->stmts) { type_check_stmt(a, block, stmt); }
   For(stmt, block->stmts) { stmt_analyze_child_block(a, block, stmt); }
+}
+
+static void analyze_block_ordered(analyzer_t *a, block_t *block) {
+  For(stmt, block->stmts) {
+    add_stmt(a, block, stmt);
+    symbol_check_stmt(a, block, stmt);
+    type_check_stmt(a, block, stmt);
+    stmt_analyze_child_block(a, block, stmt);
+  }
 }
 
 void analyzer_init(analyzer_t *a, ctx_t *ctx) {
@@ -434,7 +655,7 @@ error_set_t analyzer_analyze(analyzer_t *a, ast_t *ast) {
   a->ast = ast;
 
   scope_init(&ast->block.scope, NULL, ast->block.stmts.count);
-  analyze_block(a, &ast->block);
+  analyze_block_unordered(a, &ast->block);
 
   return (error_set_t){
       .type   = RESULT_ANALYZER,

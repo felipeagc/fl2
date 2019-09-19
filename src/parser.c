@@ -224,16 +224,16 @@ static bool parse_primary(parser_t *p, primary_expr_t *primary) {
     primary->kind = PRIMARY_PRIMITIVE_TYPE;
 
     switch (tok->type) {
-    case TOKEN_I8: primary->prim_type = PRIMITIVE_TYPE_I8; break;
-    case TOKEN_I16: primary->prim_type = PRIMITIVE_TYPE_I16; break;
-    case TOKEN_I32: primary->prim_type = PRIMITIVE_TYPE_I32; break;
-    case TOKEN_I64: primary->prim_type = PRIMITIVE_TYPE_I64; break;
-    case TOKEN_U8: primary->prim_type = PRIMITIVE_TYPE_U8; break;
-    case TOKEN_U16: primary->prim_type = PRIMITIVE_TYPE_U16; break;
-    case TOKEN_U32: primary->prim_type = PRIMITIVE_TYPE_U32; break;
-    case TOKEN_U64: primary->prim_type = PRIMITIVE_TYPE_U64; break;
-    case TOKEN_BOOL: primary->prim_type = PRIMITIVE_TYPE_BOOL; break;
-    case TOKEN_VOID: primary->prim_type = PRIMITIVE_TYPE_VOID; break;
+    case TOKEN_I8: primary->prim_type = PRIM_TYPE_I8; break;
+    case TOKEN_I16: primary->prim_type = PRIM_TYPE_I16; break;
+    case TOKEN_I32: primary->prim_type = PRIM_TYPE_I32; break;
+    case TOKEN_I64: primary->prim_type = PRIM_TYPE_I64; break;
+    case TOKEN_U8: primary->prim_type = PRIM_TYPE_U8; break;
+    case TOKEN_U16: primary->prim_type = PRIM_TYPE_U16; break;
+    case TOKEN_U32: primary->prim_type = PRIM_TYPE_U32; break;
+    case TOKEN_U64: primary->prim_type = PRIM_TYPE_U64; break;
+    case TOKEN_BOOL: primary->prim_type = PRIM_TYPE_BOOL; break;
+    case TOKEN_VOID: primary->prim_type = PRIM_TYPE_VOID; break;
     default: assert(0);
     }
 
@@ -431,9 +431,9 @@ static bool parse_decl_or_assign_or_stmt_expr(parser_t *p, stmt_t *stmt) {
       stmt->kind          = STMT_VAR_DECL;
       stmt->var_decl.name = name_tok->string;
 
-      stmt->var_decl.expr  = expr;
-      stmt->var_decl.type  = type_expr;
-      stmt->var_decl.typed = got_type;
+      stmt->var_decl.expr      = expr;
+      stmt->var_decl.type_expr = type_expr;
+      stmt->var_decl.typed     = got_type;
 
       if (!consume(p, TOKEN_SEMI)) {
         res = false;
@@ -447,9 +447,9 @@ static bool parse_decl_or_assign_or_stmt_expr(parser_t *p, stmt_t *stmt) {
       stmt->kind            = STMT_CONST_DECL;
       stmt->const_decl.name = name_tok->string;
 
-      stmt->const_decl.expr  = expr;
-      stmt->const_decl.type  = type_expr;
-      stmt->const_decl.typed = got_type;
+      stmt->const_decl.expr      = expr;
+      stmt->const_decl.type_expr = type_expr;
+      stmt->const_decl.typed     = got_type;
 
       switch (stmt->const_decl.expr.kind) {
       case EXPR_STRUCT:
