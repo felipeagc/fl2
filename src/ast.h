@@ -10,13 +10,11 @@ typedef SLICE(expr_t) expr_slice_t;
 typedef struct stmt_t stmt_t;
 typedef SLICE(stmt_t) stmt_slice_t;
 
-typedef struct block_t block_t;
-typedef SLICE(block_t) block_slice_t;
-
 typedef struct block_t {
   scope_t scope;
   stmt_slice_t stmts;
 } block_t;
+typedef SLICE(block_t) block_slice_t;
 
 typedef struct access_t {
   expr_t *left;
@@ -54,6 +52,7 @@ typedef struct proc_call_t {
 
 typedef struct import_t {
   strbuf_t path;
+  ast_t *ast;
 } import_t;
 
 typedef enum prim_type_t {
@@ -107,21 +106,22 @@ typedef struct binary_op_t {
   } kind;
 } binary_op_t;
 
+typedef enum expr_kind_t {
+  EXPR_PRIMARY,
+  EXPR_EXPR,
+  EXPR_STRUCT,
+  EXPR_PROC,
+  EXPR_IMPORT,
+  EXPR_ACCESS,
+  EXPR_PROC_CALL,
+  EXPR_UNARY,
+  EXPR_BINARY,
+  EXPR_BLOCK,
+} expr_kind_t;
+
 typedef struct expr_t {
   pos_t pos;
-
-  enum {
-    EXPR_PRIMARY,
-    EXPR_EXPR,
-    EXPR_STRUCT,
-    EXPR_PROC,
-    EXPR_IMPORT,
-    EXPR_ACCESS,
-    EXPR_PROC_CALL,
-    EXPR_UNARY,
-    EXPR_BINARY,
-    EXPR_BLOCK,
-  } kind;
+  expr_kind_t kind;
 
   union {
     primary_expr_t primary;
@@ -196,20 +196,14 @@ typedef struct ast_t {
 typedef struct symbol_t {
   enum {
     SYMBOL_DUMMY,
-    SYMBOL_NAMESPACE,
-    SYMBOL_CONST,
+    SYMBOL_CONST_DECL,
     SYMBOL_GLOBAL_VAR,
     SYMBOL_LOCAL_VAR,
-    SYMBOL_PROC,
-    SYMBOL_STRUCT,
   } kind;
 
   scope_t *scope;
 
   union {
-    ast_t ast;
-    struct_t str;
+    const_decl_t *const_decl;
   };
 } symbol_t;
-
-bool is_expr_type(expr_t *expr, scope_t *scope);

@@ -4,6 +4,8 @@ MyStruct :: struct {
 
 }
 
+MyStructAlias :: MyStruct;
+
 asd :: proc (c: i32) {
   d := 123;
 
@@ -11,10 +13,12 @@ asd :: proc (c: i32) {
 
 global := 123;
 
-main :: proc (a: asdasdasd, b: i32) {
 
-  hello :: import "other.fl";
+main :: proc () {
+  hello :: (import "other.fl");
   using hello;
+
+  asdasdasd := puts();
 
   bb := (hello.puts())();
 
@@ -28,6 +32,7 @@ main :: proc (a: asdasdasd, b: i32) {
   adghfdgh: u32 = 123;
   bbb: Entity = 123;
 
+  bbbb: MyStructAlias = 123;
 
   derp :: proc () {
     aaa :: hello.puts;
@@ -41,3 +46,5 @@ main :: proc (a: asdasdasd, b: i32) {
 
   aaa := derp();
 }
+
+

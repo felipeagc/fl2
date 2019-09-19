@@ -1,5 +1,6 @@
 #include "analyzer.h"
 
+#include "expr.h"
 #include "filesystem.h"
 #include "parser.h"
 #include "scanner.h"
@@ -28,6 +29,8 @@ static void analyze_block_ordered(analyzer_t *a, block_t *block);
 
 static bool
 expr_as_type(analyzer_t *a, block_t *block, expr_t *expr, type_t *type) {
+  expr = inner_expr(expr);
+
   switch (expr->kind) {
   case EXPR_PRIMARY: {
 
@@ -45,10 +48,8 @@ expr_as_type(analyzer_t *a, block_t *block, expr_t *expr, type_t *type) {
       symbol_t *sym = scope_get(&block->scope, expr->primary.ident);
       if (sym) {
         switch (sym->kind) {
-        case SYMBOL_STRUCT: {
-          type->kind = TYPE_STRUCT;
-          type->str  = &sym->str;
-          return true;
+        case SYMBOL_CONST_DECL: {
+          return expr_as_type(a, block, &sym->const_decl->expr, type);
         } break;
 
         default: break;
@@ -85,7 +86,9 @@ expr_as_type(analyzer_t *a, block_t *block, expr_t *expr, type_t *type) {
   } break;
 
   case EXPR_STRUCT: {
-
+    type->kind = TYPE_STRUCT;
+    type->str  = &expr->str;
+    return true;
   } break;
 
   case EXPR_IMPORT: {
@@ -102,6 +105,7 @@ expr_as_type(analyzer_t *a, block_t *block, expr_t *expr, type_t *type) {
 
 static symbol_t *
 symbol_check_expr(analyzer_t *a, block_t *block, expr_t *expr) {
+  expr = inner_expr(expr);
   switch (expr->kind) {
   case EXPR_PRIMARY: {
 
@@ -131,8 +135,16 @@ symbol_check_expr(analyzer_t *a, block_t *block, expr_t *expr) {
     symbol_t *sym = symbol_check_expr(a, block, expr->access.left);
     if (sym) {
       switch (sym->kind) {
-      case SYMBOL_NAMESPACE: {
-        return symbol_check_expr(a, &sym->ast.block, expr->access.right);
+      case SYMBOL_CONST_DECL: {
+        expr_t *inner = inner_expr(&sym->const_decl->expr);
+        switch (inner->kind) {
+        case EXPR_IMPORT: {
+          return symbol_check_expr(
+              a, &inner->import.ast->block, expr->access.right);
+        } break;
+
+        default: break;
+        }
       } break;
 
       default: break;
@@ -177,6 +189,7 @@ symbol_check_expr(analyzer_t *a, block_t *block, expr_t *expr) {
 
 static void
 type_check_expr(analyzer_t *a, block_t *block, expr_t *expr, type_t *out_type) {
+  expr = inner_expr(expr);
   memset(out_type, 0, sizeof(*out_type));
 
   switch (expr->kind) {
@@ -208,9 +221,18 @@ type_check_expr(analyzer_t *a, block_t *block, expr_t *expr, type_t *out_type) {
     symbol_t *sym = symbol_check_expr(a, block, expr->access.left);
     if (sym) {
       switch (sym->kind) {
-      case SYMBOL_NAMESPACE: {
-        return type_check_expr(
-            a, &sym->ast.block, expr->access.right, out_type);
+      case SYMBOL_CONST_DECL: {
+        expr_t *decl_expr = inner_expr(&sym->const_decl->expr);
+
+        switch (decl_expr->kind) {
+        case EXPR_IMPORT: {
+
+          return type_check_expr(
+              a, &decl_expr->import.ast->block, expr->access.right, out_type);
+        } break;
+
+        default: break;
+        }
       } break;
 
       default: break;
@@ -255,10 +277,11 @@ static void add_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
       error(a, stmt->pos, "duplicate declaration");
     }
 
-    symbol_t *sym = scope_add(&block->scope, a->ctx, stmt->const_decl.name);
-    sym->kind     = SYMBOL_CONST;
+    symbol_t *sym   = scope_add(&block->scope, a->ctx, stmt->const_decl.name);
+    sym->kind       = SYMBOL_CONST_DECL;
+    sym->const_decl = &stmt->const_decl;
 
-    expr_t *expr = &stmt->const_decl.expr;
+    expr_t *expr = inner_expr(&stmt->const_decl.expr);
 
     switch (expr->kind) {
     case EXPR_IMPORT: {
@@ -291,21 +314,12 @@ static void add_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
         break;
       }
 
-      sym->kind = SYMBOL_NAMESPACE;
+      expr->import.ast = bump_alloc(&a->ctx->alloc, sizeof(ast_t));
 
-      error_set_t result = ctx_process_file(a->ctx, file, &sym->ast);
+      error_set_t result = ctx_process_file(a->ctx, file, expr->import.ast);
       if (result.errors.count > 0) {
         For(err, result.errors) APPEND(a->errors, *err);
       }
-    } break;
-
-    case EXPR_PROC: {
-      sym->kind = SYMBOL_PROC;
-    } break;
-
-    case EXPR_STRUCT: {
-      sym->kind = SYMBOL_STRUCT;
-      sym->str  = expr->str;
     } break;
 
     default: break;
@@ -313,7 +327,7 @@ static void add_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
   } break;
 
   case STMT_USING: {
-    expr_t *expr = &stmt->expr;
+    expr_t *expr = inner_expr(&stmt->expr);
 
     switch (expr->kind) {
     case EXPR_IMPORT: {
@@ -469,15 +483,32 @@ static void symbol_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
   } break;
 
   case STMT_USING: {
-    symbol_t *sym = symbol_check_expr(a, block, &stmt->expr);
+    symbol_t *sym      = symbol_check_expr(a, block, &stmt->expr);
+    expr_t *using_expr = inner_expr(&stmt->expr);
 
-    switch (stmt->expr.kind) {
+    switch (using_expr->kind) {
     case EXPR_IMPORT: break;
 
     default: {
       if (sym) {
         switch (sym->kind) {
-        case SYMBOL_NAMESPACE: break;
+        case SYMBOL_CONST_DECL: {
+          expr_t *sym_expr = inner_expr(&sym->const_decl->expr);
+
+          switch (sym_expr->kind) {
+          case EXPR_IMPORT: {
+            APPEND(block->scope.siblings, sym_expr->import.ast->block.scope);
+          } break;
+
+          default: {
+            error(
+                a,
+                stmt->pos,
+                "'using' expression does not refer to a valid symbol");
+          } break;
+          }
+
+        } break;
 
         default: {
           error(
@@ -559,10 +590,11 @@ static void
 stmt_analyze_child_block(analyzer_t *a, block_t *block, stmt_t *stmt);
 
 // Only analyzes children expressions to the expression passed in
-// Does not analyze the expression itself, only useful for analyzing children
-// scopes, etc
+// Does not analyze the expression itself, only useful for analyzing
+// children scopes, etc
 static void
 expr_analyze_child_block(analyzer_t *a, block_t *block, expr_t *expr) {
+  expr = inner_expr(expr);
   switch (expr->kind) {
   case EXPR_PROC: {
     scope_init(
