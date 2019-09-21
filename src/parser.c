@@ -105,12 +105,12 @@ static bool parse_proc(parser_t *p, proc_t *proc) {
 
   if (peek(p)->type == TOKEN_EXTERN) {
     next(p);
-    proc->flags |= PROC_FLAG_EXTERN;
+    proc->sig.flags |= PROC_FLAG_EXTERN;
   }
 
   if (peek(p)->type == TOKEN_INLINE) {
     next(p);
-    proc->flags |= PROC_FLAG_INLINE;
+    proc->sig.flags |= PROC_FLAG_INLINE;
   }
 
   if (!consume(p, TOKEN_LPAREN)) res = false;
@@ -134,7 +134,7 @@ static bool parse_proc(parser_t *p, proc_t *proc) {
     if (!parse_expr(p, &param.type)) res = false;
 
     if (res) {
-      APPEND(proc->params, param);
+      APPEND(proc->sig.params, param);
     }
 
     if (peek(p)->type != TOKEN_RPAREN) {
@@ -156,7 +156,7 @@ static bool parse_proc(parser_t *p, proc_t *proc) {
     }
 
     if (res) {
-      APPEND(proc->return_types, return_type);
+      APPEND(proc->sig.return_types, return_type);
     }
 
     if (peek(p)->type != TOKEN_LCURLY) {

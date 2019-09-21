@@ -23,9 +23,9 @@ main :: proc () {
 
   bb := (hello.puts())();
 
-  a : i64 : 123;
+  a: i64 : 123;
 
-  aa := Entity;
+  aa : Entity = Entity;
 
   other_const :: 123;
   some_const :: other_const;

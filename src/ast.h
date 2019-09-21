@@ -29,10 +29,14 @@ typedef enum proc_flags_t {
   PROC_FLAG_EXTERN = 1 << 2,
 } proc_flags_t;
 
-typedef struct proc_t {
+typedef struct proc_signature_t {
   proc_flags_t flags;
   proc_param_slice_t params;
   expr_slice_t return_types;
+} proc_signature_t;
+
+typedef struct proc_t {
+  proc_signature_t sig;
   block_t block;
 } proc_t;
 

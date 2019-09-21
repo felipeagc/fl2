@@ -24,6 +24,7 @@ type_t *exact_types(type_t *received, type_t *expected) {
     assert(0);
   } break;
   case TYPE_TYPE: break;
+  case TYPE_NAMESPACE: break;
   case TYPE_UNDEFINED: break;
   }
 

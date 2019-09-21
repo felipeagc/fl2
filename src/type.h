@@ -9,6 +9,7 @@ typedef SLICE(type_t) type_slice_t;
 typedef struct type_t {
   enum {
     TYPE_UNDEFINED,
+    TYPE_NAMESPACE, // import "asdasd.fl"
     TYPE_PRIMITIVE, // i32
     TYPE_TYPE,      // ([]*Hello)
     TYPE_PTR,       // *i32
@@ -25,6 +26,7 @@ typedef struct type_t {
       struct type_t *subtype;
     };
     struct_t *str;
+    proc_signature_t *proc_sig;
   };
 } type_t;
 

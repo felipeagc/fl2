@@ -284,20 +284,27 @@ static void type_check_expr(
   } break;
 
   case EXPR_PROC: {
-
+    out_type->kind     = TYPE_PROC;
+    out_type->proc_sig = &expr->proc.sig;
   } break;
 
   case EXPR_STRUCT: {
-
+    out_type->kind = TYPE_STRUCT;
+    out_type->str  = &expr->str;
   } break;
 
   case EXPR_IMPORT: {
-
+    out_type->kind = TYPE_NAMESPACE;
   } break;
 
   case EXPR_BLOCK: {
 
   } break;
+  }
+
+  if (out_type->kind == TYPE_UNDEFINED) {
+    error(a, expr->pos, "undefined type");
+    return;
   }
 
   if (expected_type) {
@@ -646,11 +653,11 @@ expr_analyze_child_block(analyzer_t *a, block_t *block, expr_t *expr) {
     scope_init(
         &expr->proc.block.scope,
         &block->scope,
-        expr->proc.block.stmts.count + expr->proc.params.count);
+        expr->proc.block.stmts.count + expr->proc.sig.params.count);
 
     expr->proc.block.scope.proc = &expr->proc;
 
-    For(param, expr->proc.params) {
+    For(param, expr->proc.sig.params) {
       if (scope_get_local(&expr->proc.block.scope, param->name)) {
         error(
             a,
