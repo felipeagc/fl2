@@ -24,8 +24,9 @@ main :: proc () {
   bb := (hello.puts())();
 
   a: i64 : 123;
+  bbbbbb : i64 = a;
 
-  aa : Entity = Entity;
+  aa : Entity;
 
   other_const :: 123;
   some_const :: other_const;
@@ -38,7 +39,7 @@ main :: proc () {
   bbbb: other.Entity;
   bbbbb: Entity;
 
-  derp :: proc () {
+  derp :: proc () i32 {
     aaa :: hello.puts;
     b := hello.puts();
 

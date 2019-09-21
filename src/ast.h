@@ -10,6 +10,9 @@ typedef SLICE(expr_t) expr_slice_t;
 typedef struct stmt_t stmt_t;
 typedef SLICE(stmt_t) stmt_slice_t;
 
+typedef struct type_t type_t;
+typedef SLICE(type_t) type_slice_t;
+
 typedef struct block_t {
   scope_t scope;
   stmt_slice_t stmts;
@@ -123,9 +126,35 @@ typedef enum expr_kind_t {
   EXPR_BLOCK,
 } expr_kind_t;
 
+typedef struct type_t {
+  enum {
+    TYPE_UNDEFINED,
+    TYPE_NAMESPACE, // import "asdasd.fl"
+    TYPE_PRIMITIVE, // i32
+    TYPE_TYPE,      // ([]*Hello)
+    TYPE_PTR,       // *i32
+    TYPE_ARRAY,     // [3]i32
+    TYPE_SLICE,     // []i32
+    TYPE_STRUCT,    // struct {}
+    TYPE_PROC,      // proc (a: i32) i32
+  } kind;
+
+  union {
+    prim_type_t prim;
+    struct {
+      size_t size;
+      struct type_t *subtype;
+    };
+    struct_t *str;
+    proc_signature_t *proc_sig;
+  };
+} type_t;
+
 typedef struct expr_t {
   pos_t pos;
   expr_kind_t kind;
+
+  type_t type;
 
   union {
     primary_expr_t primary;
@@ -163,6 +192,7 @@ typedef struct var_decl_t {
   strbuf_t name;
   expr_t expr;
   expr_t type_expr;
+  type_t type;
 } var_decl_t;
 
 typedef struct var_assign_t {
@@ -174,6 +204,7 @@ typedef struct const_decl_t {
   strbuf_t name;
   expr_t expr;
   expr_t type_expr;
+  type_t type;
   bool typed;
 } const_decl_t;
 
@@ -214,5 +245,7 @@ typedef struct symbol_t {
 
   union {
     const_decl_t *const_decl;
+    var_decl_t *var_decl;
   };
 } symbol_t;
+
