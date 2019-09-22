@@ -139,6 +139,8 @@ typedef struct type_t {
     TYPE_PROC,      // proc (a: i32) i32
   } kind;
 
+  strbuf_t name;
+
   union {
     prim_type_t prim;
     struct {

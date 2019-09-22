@@ -1,3 +1,6 @@
+Scanner
+- Scan comments
+
 Parser
 - Unary exprs
 	dereference
@@ -21,7 +24,5 @@ Parser
 
 Analyzer
 	automatic numeric casting
-	typeof(struct {}) == type
-	print expected and received types in type check errors
 	
 

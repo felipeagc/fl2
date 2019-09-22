@@ -15,6 +15,7 @@ asd :: proc (c: i32) {
 global := 123;
 
 MyInt :: i64;
+MyInt32 :: i32;
 
 main :: proc () {
   hello :: (import "other.fl");
@@ -39,7 +40,8 @@ main :: proc () {
 
   aaaaaaaa := hello.puts;
 
-  adghfdgh: i64 = 123;
+  my_i32: i32;
+  adghfdgh: MyInt32 = my_i32;
 
   adghfdghg: i64;
   bbbb: other.Entity;

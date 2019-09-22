@@ -31,8 +31,6 @@ static symbol_t *get_expr_sym(analyzer_t *a, block_t *block, expr_t *expr);
 
 static bool
 expr_as_type(analyzer_t *a, block_t *block, expr_t *expr, type_t *type) {
-  expr = inner_expr(expr);
-
   switch (expr->kind) {
   case EXPR_PRIMARY: {
 
@@ -51,7 +49,9 @@ expr_as_type(analyzer_t *a, block_t *block, expr_t *expr, type_t *type) {
       if (sym) {
         switch (sym->kind) {
         case SYMBOL_CONST_DECL: {
-          return expr_as_type(a, block, &sym->const_decl->expr, type);
+          bool res = expr_as_type(a, block, &sym->const_decl->expr, type);
+          type->name = sym->const_decl->name;
+          return res;
         } break;
 
         default: break;
@@ -476,7 +476,23 @@ static void type_check_expr(
 
   if (expected_type) {
     if (!equivalent_types(expected_type, &expr->type)) {
-      error(a, expr->pos, "type mismatch");
+      sb_reset(&a->ctx->sb);
+      print_type(&a->ctx->sb, expected_type);
+      strbuf_t expected_name =
+          bump_strdup(&a->ctx->alloc, sb_build(&a->ctx->sb));
+
+      sb_reset(&a->ctx->sb);
+      print_type(&a->ctx->sb, &expr->type);
+      strbuf_t actual_name = bump_strdup(&a->ctx->alloc, sb_build(&a->ctx->sb));
+
+      error(
+          a,
+          expr->pos,
+          "type mismatch, expected: '%.*s', instead got '%.*s'",
+          (int)expected_name.count,
+          expected_name.buf,
+          (int)actual_name.count,
+          actual_name.buf);
     }
   }
 }
@@ -745,6 +761,8 @@ static void type_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
   switch (stmt->kind) {
   case STMT_CONST_DECL: {
     type_t type;
+    memset(&type, 0, sizeof(type));
+
     type_t *expected_type = NULL;
     if (stmt->const_decl.typed) {
       expected_type = &type;
@@ -763,10 +781,14 @@ static void type_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
       stmt->const_decl.type = *expected_type;
     else
       stmt->const_decl.type = stmt->const_decl.expr.type;
+
+    stmt->const_decl.type.name = stmt->const_decl.name;
   } break;
 
   case STMT_VAR_DECL: {
     type_t type;
+    memset(&type, 0, sizeof(type));
+
     type_t *expected_type = NULL;
 
     if (stmt->var_decl.flags & VAR_DECL_HAS_TYPE) {
