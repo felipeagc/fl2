@@ -48,7 +48,7 @@ main :: proc () {
   derp :: proc () i32 {
     aaa :: hello.puts;
     some_int :: 123;
-    b := hello.sum(puts, 2);
+    b := hello.sum(some_int, 2);
     b = 123;
 
     aaaa := derp();

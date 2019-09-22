@@ -203,8 +203,13 @@ static symbol_t *get_expr_sym(analyzer_t *a, block_t *block, expr_t *expr) {
   return NULL;
 }
 
-static symbol_t *
-symbol_check_expr(analyzer_t *a, block_t *block, expr_t *expr) {
+static symbol_t *symbol_check_expr(
+    analyzer_t *a,
+    block_t *operand_block,
+    block_t *operation_block,
+    expr_t *expr) {
+  if (operation_block == NULL) operation_block = operand_block;
+
   expr = inner_expr(expr);
   switch (expr->kind) {
   case EXPR_PRIMARY: {
@@ -215,7 +220,7 @@ symbol_check_expr(analyzer_t *a, block_t *block, expr_t *expr) {
     case PRIMARY_PRIMITIVE_TYPE: break;
 
     case PRIMARY_IDENT: {
-      symbol_t *sym = scope_get(&block->scope, expr->primary.ident);
+      symbol_t *sym = scope_get(&operand_block->scope, expr->primary.ident);
       if (!sym) {
         error(a, expr->pos, "invalid identifier");
         break;
@@ -228,11 +233,12 @@ symbol_check_expr(analyzer_t *a, block_t *block, expr_t *expr) {
   } break;
 
   case EXPR_EXPR: {
-    return symbol_check_expr(a, block, expr->expr);
+    return symbol_check_expr(a, operation_block, NULL, expr->expr);
   } break;
 
   case EXPR_ACCESS: {
-    symbol_t *sym = symbol_check_expr(a, block, expr->access.left);
+    symbol_t *sym =
+        symbol_check_expr(a, operand_block, NULL, expr->access.left);
     if (sym) {
       switch (sym->kind) {
       case SYMBOL_CONST_DECL: {
@@ -240,7 +246,7 @@ symbol_check_expr(analyzer_t *a, block_t *block, expr_t *expr) {
         switch (inner->kind) {
         case EXPR_IMPORT: {
           return symbol_check_expr(
-              a, &inner->import.ast->block, expr->access.right);
+              a, operand_block, &inner->import.ast->block, expr->access.right);
         } break;
 
         default: break;
@@ -262,7 +268,8 @@ symbol_check_expr(analyzer_t *a, block_t *block, expr_t *expr) {
   } break;
 
   case EXPR_PROC_CALL: {
-    symbol_t *proc_sym = symbol_check_expr(a, block, expr->proc_call.expr);
+    symbol_t *proc_sym =
+        symbol_check_expr(a, operation_block, NULL, expr->proc_call.expr);
     proc_signature_t *proc_sig = NULL;
 
     if (proc_sym) {
@@ -288,7 +295,9 @@ symbol_check_expr(analyzer_t *a, block_t *block, expr_t *expr) {
       error(a, expr->pos, "wrong procedure parameter count");
     }
 
-    For(param, expr->proc_call.params) { symbol_check_expr(a, block, param); }
+    For(param, expr->proc_call.params) {
+      symbol_check_expr(a, operand_block, NULL, param);
+    }
   } break;
 
   case EXPR_PROC: {
@@ -312,7 +321,13 @@ symbol_check_expr(analyzer_t *a, block_t *block, expr_t *expr) {
 }
 
 static void type_check_expr(
-    analyzer_t *a, block_t *block, expr_t *expr, type_t *expected_type) {
+    analyzer_t *a,
+    block_t *operand_block,
+    block_t *operation_block,
+    expr_t *expr,
+    type_t *expected_type) {
+  if (operation_block == NULL) operation_block = operand_block;
+
   memset(&expr->type, 0, sizeof(expr->type));
 
   switch (expr->kind) {
@@ -333,7 +348,7 @@ static void type_check_expr(
     } break;
 
     case PRIMARY_IDENT: {
-      symbol_t *sym = get_expr_sym(a, block, expr);
+      symbol_t *sym = get_expr_sym(a, operand_block, expr);
       if (!sym) break;
 
       switch (sym->kind) {
@@ -354,13 +369,13 @@ static void type_check_expr(
   } break;
 
   case EXPR_EXPR: {
-    type_check_expr(a, block, expr->expr, expected_type);
+    type_check_expr(a, operand_block, NULL, expr->expr, expected_type);
     expr->type = expr->expr->type;
     return;
   } break;
 
   case EXPR_ACCESS: {
-    symbol_t *sym = get_expr_sym(a, block, expr->access.left);
+    symbol_t *sym = get_expr_sym(a, operand_block, expr->access.left);
     if (sym) {
       switch (sym->kind) {
       case SYMBOL_CONST_DECL: {
@@ -370,6 +385,7 @@ static void type_check_expr(
         case EXPR_IMPORT: {
           type_check_expr(
               a,
+              operand_block,
               &decl_expr->import.ast->block,
               expr->access.right,
               expected_type);
@@ -395,25 +411,42 @@ static void type_check_expr(
   } break;
 
   case EXPR_PROC_CALL: {
-    symbol_t *sym = get_expr_sym(a, block, expr->proc_call.expr);
+    symbol_t *proc_sym = get_expr_sym(a, operation_block, expr->proc_call.expr);
+    proc_signature_t *proc_sig = NULL;
 
-    switch (sym->kind) {
-    case SYMBOL_CONST_DECL: {
-      expr_t *inner = inner_expr(&sym->const_decl->expr);
-
-      if (inner->kind == EXPR_PROC) {
-        expr_slice_t return_types = sym->const_decl->expr.proc.sig.return_types;
-        if (return_types.count == 0) {
-          expr->type.kind = TYPE_PRIMITIVE;
-          expr->type.prim = PRIM_TYPE_VOID;
+    if (proc_sym) {
+      switch (proc_sym->kind) {
+      case SYMBOL_CONST_DECL: {
+        if (proc_sym->const_decl->type.kind == TYPE_PROC) {
+          proc_sig = proc_sym->const_decl->type.proc_sig;
         }
-        if (return_types.count >= 1) {
-          expr_as_type(a, block, &return_types.buf[0], &expr->type);
-        }
+      } break;
+      default: break;
       }
-    } break;
+    }
 
-    default: break;
+    if (proc_sig == NULL) break;
+
+    expr_slice_t return_types = proc_sig->return_types;
+
+    if (return_types.count == 0) {
+      expr->type.kind = TYPE_PRIMITIVE;
+      expr->type.prim = PRIM_TYPE_VOID;
+    }
+
+    if (return_types.count >= 1) {
+      expr_as_type(a, operation_block, &return_types.buf[0], &expr->type);
+    }
+
+    if (proc_sig->params.count == expr->proc_call.params.count) {
+      for (size_t i = 0; i < proc_sig->params.count; i++) {
+        type_check_expr(
+            a,
+            operand_block,
+            NULL,
+            &expr->proc_call.params.buf[i],
+            &proc_sig->params.buf[i].type);
+      }
     }
   } break;
 
@@ -573,10 +606,10 @@ static void symbol_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
   switch (stmt->kind) {
   case STMT_CONST_DECL: {
     if (stmt->const_decl.typed) {
-      symbol_check_expr(a, block, &stmt->const_decl.type_expr);
+      symbol_check_expr(a, block, NULL, &stmt->const_decl.type_expr);
     }
 
-    symbol_t *sym = symbol_check_expr(a, block, &stmt->const_decl.expr);
+    symbol_t *sym = symbol_check_expr(a, block, NULL, &stmt->const_decl.expr);
 
     if (sym) {
       switch (sym->kind) {
@@ -592,10 +625,10 @@ static void symbol_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
 
   case STMT_VAR_DECL: {
     if (stmt->var_decl.flags & VAR_DECL_HAS_TYPE) {
-      symbol_check_expr(a, block, &stmt->var_decl.type_expr);
+      symbol_check_expr(a, block, NULL, &stmt->var_decl.type_expr);
     }
 
-    symbol_t *sym = symbol_check_expr(a, block, &stmt->var_decl.expr);
+    symbol_t *sym = symbol_check_expr(a, block, NULL, &stmt->var_decl.expr);
     if (sym) {
       switch (sym->kind) {
       case SYMBOL_LOCAL_VAR: {
@@ -614,7 +647,7 @@ static void symbol_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
 
   case STMT_VAR_ASSIGN: {
     symbol_t *assigned_sym =
-        symbol_check_expr(a, block, &stmt->var_assign.assigned);
+        symbol_check_expr(a, block, NULL, &stmt->var_assign.assigned);
 
     if (assigned_sym) {
       switch (assigned_sym->kind) {
@@ -640,7 +673,7 @@ static void symbol_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
       }
     }
 
-    symbol_t *sym = symbol_check_expr(a, block, &stmt->var_assign.expr);
+    symbol_t *sym = symbol_check_expr(a, block, NULL, &stmt->var_assign.expr);
     if (sym) {
       switch (sym->kind) {
       case SYMBOL_LOCAL_VAR: {
@@ -658,11 +691,11 @@ static void symbol_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
   } break;
 
   case STMT_EXPR: {
-    symbol_check_expr(a, block, &stmt->expr);
+    symbol_check_expr(a, block, NULL, &stmt->expr);
   } break;
 
   case STMT_USING: {
-    symbol_t *sym      = symbol_check_expr(a, block, &stmt->expr);
+    symbol_t *sym      = symbol_check_expr(a, block, NULL, &stmt->expr);
     expr_t *using_expr = inner_expr(&stmt->expr);
 
     switch (using_expr->kind) {
@@ -724,7 +757,7 @@ static void type_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
       }
     }
 
-    type_check_expr(a, block, &stmt->const_decl.expr, expected_type);
+    type_check_expr(a, block, NULL, &stmt->const_decl.expr, expected_type);
 
     if (expected_type)
       stmt->const_decl.type = *expected_type;
@@ -748,7 +781,7 @@ static void type_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
     }
 
     if (stmt->var_decl.flags & VAR_DECL_HAS_EXPR) {
-      type_check_expr(a, block, &stmt->var_decl.expr, expected_type);
+      type_check_expr(a, block, NULL, &stmt->var_decl.expr, expected_type);
     }
 
     if (expected_type)
@@ -758,17 +791,21 @@ static void type_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
   } break;
 
   case STMT_VAR_ASSIGN: {
-    type_check_expr(a, block, &stmt->var_assign.assigned, NULL);
+    type_check_expr(a, block, NULL, &stmt->var_assign.assigned, NULL);
     type_check_expr(
-        a, block, &stmt->var_assign.expr, &stmt->var_assign.assigned.type);
+        a,
+        block,
+        NULL,
+        &stmt->var_assign.expr,
+        &stmt->var_assign.assigned.type);
   } break;
 
   case STMT_EXPR: {
-    type_check_expr(a, block, &stmt->expr, NULL);
+    type_check_expr(a, block, NULL, &stmt->expr, NULL);
   } break;
 
   case STMT_USING: {
-    type_check_expr(a, block, &stmt->expr, NULL);
+    type_check_expr(a, block, NULL, &stmt->expr, NULL);
   } break;
 
   case STMT_DUMMY: break;
