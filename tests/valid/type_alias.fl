@@ -1,0 +1,10 @@
+MyInt :: i64;
+MyInt2 :: MyInt;
+
+main :: proc () {
+  a: i64 = 123;
+  b: MyInt = a;
+  b = 123;
+  c: MyInt2 = 123;
+  c = b;
+}

@@ -24,8 +24,8 @@ typedef struct access_t {
   expr_t *right;
 } access_t;
 
-typedef struct proc_param_t proc_param_t;
-typedef SLICE(proc_param_t) proc_param_slice_t;
+typedef struct var_decl_t var_decl_t;
+typedef SLICE(var_decl_t) var_decl_slice_t;
 
 typedef enum proc_flags_t {
   PROC_FLAG_INLINE = 1 << 1,
@@ -34,7 +34,7 @@ typedef enum proc_flags_t {
 
 typedef struct proc_signature_t {
   proc_flags_t flags;
-  proc_param_slice_t params;
+  var_decl_slice_t params;
   expr_slice_t return_types;
 } proc_signature_t;
 
@@ -176,11 +176,6 @@ typedef struct expr_t {
     };
   };
 } expr_t;
-
-typedef struct proc_param_t {
-  strbuf_t name;
-  expr_t type;
-} proc_param_t;
 
 typedef enum var_decl_flags_t {
   VAR_DECL_HAS_TYPE = 1 << 1,

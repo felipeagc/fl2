@@ -118,7 +118,9 @@ static bool parse_proc(parser_t *p, proc_t *proc) {
   while (peek(p)->type != TOKEN_RPAREN) {
     // Parse arguments
 
-    proc_param_t param;
+    var_decl_t param;
+    memset(&param, 0, sizeof(param));
+    param.flags |= VAR_DECL_HAS_TYPE;
 
     token_t *name = consume(p, TOKEN_IDENT);
     if (!name) {
@@ -131,7 +133,7 @@ static bool parse_proc(parser_t *p, proc_t *proc) {
 
     if (!consume(p, TOKEN_COLON)) res = false;
 
-    if (!parse_expr(p, &param.type)) res = false;
+    if (!parse_expr(p, &param.type_expr)) res = false;
 
     if (res) {
       APPEND(proc->sig.params, param);
@@ -304,6 +306,8 @@ static bool parse_proc_call(parser_t *p, expr_t *expr) {
     }
 
     if (!consume(p, TOKEN_RPAREN)) res = false;
+
+    expr->pos.len = peek(p)->pos.offset - expr->pos.offset;
   }
 
   return res;

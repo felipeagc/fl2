@@ -14,22 +14,28 @@ asd :: proc (c: i32) {
 
 global := 123;
 
+MyInt :: i64;
 
 main :: proc () {
   hello :: (import "other.fl");
   using (hello);
 
-  asdasdasd := puts();
 
-  bb := (hello.puts())();
+  bb :i64= (hello.sum(1, 2));
+  bb = 123;
 
   a: i64 : 123;
+  myint: MyInt = a;
   bbbbbb : i64 = a;
 
-  aa : Entity;
+  aa : MyInt = 123;
 
   other_const :: 123;
   some_const :: other_const;
+
+  void_proc :: proc () {}
+
+  asdasdasd := void_proc();
 
   aaaaaaaa := hello.puts;
 
@@ -41,13 +47,15 @@ main :: proc () {
 
   derp :: proc () i32 {
     aaa :: hello.puts;
-    b := hello.puts();
+    some_int :: 123;
+    b := hello.sum(puts, 2);
+    b = 123;
 
     aaaa := derp();
     asdf := global;
   }
 
-  derp()(1, 2);
+  derp();
 
   aaa := derp();
 }

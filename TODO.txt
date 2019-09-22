@@ -20,6 +20,10 @@ Parser
 
 
 Analyzer
-	type checking
+	operand block vs operation block
+	automatic numeric casting
+	typeof(struct {}) == type
+	print expected and received types in type check errors
+	type check proc call parameters
 	
 

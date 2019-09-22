@@ -262,9 +262,33 @@ symbol_check_expr(analyzer_t *a, block_t *block, expr_t *expr) {
   } break;
 
   case EXPR_PROC_CALL: {
-    symbol_check_expr(a, block, expr->proc_call.expr);
+    symbol_t *proc_sym = symbol_check_expr(a, block, expr->proc_call.expr);
+    proc_signature_t *proc_sig = NULL;
+
+    if (proc_sym) {
+      switch (proc_sym->kind) {
+      case SYMBOL_CONST_DECL: {
+        if (proc_sym->const_decl->type.kind == TYPE_PROC) {
+          proc_sig = proc_sym->const_decl->type.proc_sig;
+        }
+      } break;
+      default: break;
+      }
+    }
+
+    if (proc_sig == NULL) {
+      error(
+          a,
+          expr->proc_call.expr->pos,
+          "expression does not refer to a procedure");
+      break;
+    }
+
+    if (proc_sig->params.count != expr->proc_call.params.count) {
+      error(a, expr->pos, "wrong procedure parameter count");
+    }
+
     For(param, expr->proc_call.params) { symbol_check_expr(a, block, param); }
-    return NULL;
   } break;
 
   case EXPR_PROC: {
@@ -304,7 +328,9 @@ static void type_check_expr(
       expr->type.prim = PRIM_TYPE_F64;
     } break;
 
-    case PRIMARY_PRIMITIVE_TYPE: break;
+    case PRIMARY_PRIMITIVE_TYPE: {
+      expr->type.kind = TYPE_TYPE;
+    } break;
 
     case PRIMARY_IDENT: {
       symbol_t *sym = get_expr_sym(a, block, expr);
@@ -342,12 +368,13 @@ static void type_check_expr(
 
         switch (decl_expr->kind) {
         case EXPR_IMPORT: {
-
-          return type_check_expr(
+          type_check_expr(
               a,
               &decl_expr->import.ast->block,
               expr->access.right,
               expected_type);
+          expr->type = expr->access.right->type;
+          return;
         } break;
 
         default: break;
@@ -376,7 +403,11 @@ static void type_check_expr(
 
       if (inner->kind == EXPR_PROC) {
         expr_slice_t return_types = sym->const_decl->expr.proc.sig.return_types;
-        if (return_types.count == 1) {
+        if (return_types.count == 0) {
+          expr->type.kind = TYPE_PRIMITIVE;
+          expr->type.prim = PRIM_TYPE_VOID;
+        }
+        if (return_types.count >= 1) {
           expr_as_type(a, block, &return_types.buf[0], &expr->type);
         }
       }
@@ -392,8 +423,7 @@ static void type_check_expr(
   } break;
 
   case EXPR_STRUCT: {
-    expr->type.kind = TYPE_STRUCT;
-    expr->type.str  = &expr->str;
+    expr->type.kind = TYPE_TYPE;
   } break;
 
   case EXPR_IMPORT: {
@@ -401,7 +431,8 @@ static void type_check_expr(
   } break;
 
   case EXPR_BLOCK: {
-
+    expr->type.kind = TYPE_PRIMITIVE;
+    expr->type.prim = PRIM_TYPE_VOID;
   } break;
   }
 
@@ -689,6 +720,7 @@ static void type_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
             a,
             stmt->const_decl.type_expr.pos,
             "expression does not represent a type");
+        break;
       }
     }
 
@@ -711,6 +743,7 @@ static void type_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
             a,
             stmt->var_decl.type_expr.pos,
             "expression does not represent a type");
+        break;
       }
     }
 
@@ -725,13 +758,9 @@ static void type_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
   } break;
 
   case STMT_VAR_ASSIGN: {
-    type_check_expr(a, block, &stmt->var_assign.expr, NULL);
     type_check_expr(a, block, &stmt->var_assign.assigned, NULL);
-
-    if (!equivalent_types(
-            &stmt->var_assign.expr.type, &stmt->var_assign.assigned.type)) {
-      error(a, stmt->pos, "type mismatch in variable assignment");
-    }
+    type_check_expr(
+        a, block, &stmt->var_assign.expr, &stmt->var_assign.assigned.type);
   } break;
 
   case STMT_EXPR: {
@@ -775,13 +804,13 @@ expr_analyze_child_block(analyzer_t *a, block_t *block, expr_t *expr) {
         continue;
       }
 
-      type_t type;
-      if (!expr_as_type(a, block, &param->type, &type)) {
-        error(a, param->type.pos, "expression does not represent a type");
+      if (!expr_as_type(a, block, &param->type_expr, &param->type)) {
+        error(a, param->type_expr.pos, "expression does not represent a type");
       }
 
       symbol_t *sym = scope_add(&expr->proc.block.scope, a->ctx, param->name);
       sym->kind     = SYMBOL_LOCAL_VAR;
+      sym->var_decl = param;
     }
 
     analyze_block_ordered(a, &expr->proc.block);
