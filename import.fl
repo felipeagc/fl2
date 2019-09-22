@@ -12,6 +12,8 @@ asd :: proc (c: i32) {
 
 }
 
+MyProcType :: proc () -> i32;
+
 global := 123;
 
 MyInt :: i64;
@@ -41,13 +43,12 @@ main :: proc () {
   aaaaaaaa := hello.puts;
 
   my_i32: i32;
-  adghfdgh: MyInt32 = my_i32;
 
   adghfdghg: i64;
   bbbb: other.Entity;
   bbbbb: Entity;
 
-  derp :: proc () i32 {
+  derp :: proc () -> i32 {
     aaa :: hello.puts;
     some_int :: 123;
     b := hello.sum(some_int, 2);
@@ -56,6 +57,10 @@ main :: proc () {
     aaaa := derp();
     asdf := global;
   }
+
+  adghfdgh: proc () -> i32 = derp;
+
+  my_proc: MyProcType = derp;
 
   derp();
 

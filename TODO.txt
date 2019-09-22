@@ -1,5 +1,6 @@
 Scanner
 - Scan comments
+- Scan c strings
 
 Parser
 - Unary exprs
@@ -24,5 +25,4 @@ Parser
 
 Analyzer
 	automatic numeric casting
-	
-
+	type hashing for fast type checking

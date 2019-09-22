@@ -20,12 +20,26 @@ type_t *exact_types(type_t *received, type_t *expected) {
     assert(0);
   } break;
   case TYPE_PROC: {
-    // TODO
-    assert(0);
+    if (received->proc_sig->params.count != expected->proc_sig->params.count)
+      return NULL;
+    if (received->proc_sig->return_types.count !=
+        expected->proc_sig->return_types.count)
+      return NULL;
+    for (size_t i = 0; i < received->proc_sig->params.count; i++) {
+      var_decl_t *param1 = &received->proc_sig->params.buf[i];
+      var_decl_t *param2 = &expected->proc_sig->params.buf[i];
+      if (!exact_types(&param1->type, &param2->type)) return NULL;
+    }
+    for (size_t i = 0; i < received->proc_sig->return_types.count; i++) {
+      type_t *type1 = &received->proc_sig->return_types.buf[i];
+      type_t *type2 = &expected->proc_sig->return_types.buf[i];
+      if (!exact_types(type1, type2)) return NULL;
+    }
   } break;
   case TYPE_TYPE: break;
   case TYPE_NAMESPACE: break;
   case TYPE_UNDEFINED: break;
+  case TYPE_STRING: break;
   }
 
   return received;
@@ -40,6 +54,7 @@ void print_type(str_builder_t *sb, type_t *type) {
   case TYPE_UNDEFINED: sb_append(sb, STR("undefined")); return;
   case TYPE_NAMESPACE: sb_append(sb, STR("namespace")); return;
   case TYPE_TYPE: sb_append(sb, STR("type")); return;
+  case TYPE_STRING: sb_append(sb, STR("string")); return;
   default: break;
   }
 
@@ -85,7 +100,19 @@ void print_type(str_builder_t *sb, type_t *type) {
     sb_append(sb, STR("struct"));
   } break;
   case TYPE_PROC: {
-    sb_append(sb, STR("proc ()"));
+    sb_append(sb, STR("proc ("));
+    for (size_t i = 0; i < type->proc_sig->params.count; i++) {
+      if (i > 0) sb_append(sb, STR(", "));
+      print_type(sb, &type->proc_sig->params.buf[i].type);
+    }
+    sb_append(sb, STR(")"));
+    if (type->proc_sig->return_types.count > 0) {
+      sb_append(sb, STR(" -> "));
+      for (size_t i = 0; i < type->proc_sig->return_types.count; i++) {
+        if (i > 0) sb_append(sb, STR(", "));
+        print_type(sb, &type->proc_sig->return_types.buf[i]);
+      }
+    }
   } break;
   }
 

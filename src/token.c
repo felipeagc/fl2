@@ -5,7 +5,7 @@ char *TOKEN_STRINGS[] = {
 
     [TOKEN_INT]    = "integer",
     [TOKEN_FLOAT]  = "float",
-    [TOKEN_STRING] = "string",
+    [TOKEN_STRING] = "\"string\"",
     [TOKEN_IDENT]  = "identifier",
 
     [TOKEN_LPAREN] = "(",
@@ -16,6 +16,7 @@ char *TOKEN_STRINGS[] = {
     [TOKEN_RCURLY] = "}",
 
     [TOKEN_DOT]   = ".",
+    [TOKEN_COMMA] = ",",
     [TOKEN_COLON] = ":",
     [TOKEN_SEMI]  = ";",
 
@@ -35,6 +36,8 @@ char *TOKEN_STRINGS[] = {
     [TOKEN_LEQ] = "<=",
     [TOKEN_GEQ] = ">=",
 
+    [TOKEN_ARROW] = "->",
+
     [TOKEN_U8]  = "u8",
     [TOKEN_U16] = "u16",
     [TOKEN_U32] = "u32",
@@ -46,8 +49,9 @@ char *TOKEN_STRINGS[] = {
     [TOKEN_F32] = "f32",
     [TOKEN_F64] = "f64",
 
-    [TOKEN_BOOL] = "bool",
-    [TOKEN_VOID] = "void",
+    [TOKEN_BOOL]        = "bool",
+    [TOKEN_VOID]        = "void",
+    [TOKEN_STRING_TYPE] = "string",
 
     [TOKEN_FOR]      = "for",
     [TOKEN_BREAK]    = "break",

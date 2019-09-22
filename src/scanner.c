@@ -355,6 +355,13 @@ static void scan_token(scanner_t *s) {
   } break;
   case '-': {
     next(s);
+    if (peek(s) == '>') {
+      next(s);
+      token.type    = TOKEN_ARROW;
+      token.pos.len = 2;
+      APPEND(s->tokens, token);
+      break;
+    }
     token.type = TOKEN_SUB;
     APPEND(s->tokens, token);
   } break;

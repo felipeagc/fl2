@@ -36,7 +36,8 @@ expr_as_type(analyzer_t *a, block_t *block, expr_t *expr, type_t *type) {
 
     switch (expr->primary.kind) {
     case PRIMARY_INT:
-    case PRIMARY_FLOAT: return false;
+    case PRIMARY_FLOAT:
+    case PRIMARY_STRING: return false;
 
     case PRIMARY_PRIMITIVE_TYPE: {
       type->kind = TYPE_PRIMITIVE;
@@ -45,11 +46,11 @@ expr_as_type(analyzer_t *a, block_t *block, expr_t *expr, type_t *type) {
     } break;
 
     case PRIMARY_IDENT: {
-      symbol_t *sym = scope_get(&block->scope, expr->primary.ident);
+      symbol_t *sym = scope_get(&block->scope, expr->primary.string);
       if (sym) {
         switch (sym->kind) {
         case SYMBOL_CONST_DECL: {
-          bool res = expr_as_type(a, block, &sym->const_decl->expr, type);
+          bool res   = expr_as_type(a, block, &sym->const_decl->expr, type);
           type->name = sym->const_decl->name;
           return res;
         } break;
@@ -104,8 +105,11 @@ expr_as_type(analyzer_t *a, block_t *block, expr_t *expr, type_t *type) {
   } break;
 
   case EXPR_PROC: {
-    // TODO: proc type
-    return false;
+    if (expr->proc.sig.flags & PROC_FLAG_NO_BODY) {
+      type->kind     = TYPE_PROC;
+      type->proc_sig = &expr->proc.sig;
+      return true;
+    }
   } break;
 
   case EXPR_STRUCT: {
@@ -134,10 +138,11 @@ static symbol_t *get_expr_sym(analyzer_t *a, block_t *block, expr_t *expr) {
     switch (expr->primary.kind) {
     case PRIMARY_INT:
     case PRIMARY_FLOAT:
-    case PRIMARY_PRIMITIVE_TYPE: break;
+    case PRIMARY_PRIMITIVE_TYPE:
+    case PRIMARY_STRING: break;
 
     case PRIMARY_IDENT: {
-      symbol_t *sym = scope_get(&block->scope, expr->primary.ident);
+      symbol_t *sym = scope_get(&block->scope, expr->primary.string);
       if (sym) return sym;
     } break;
     }
@@ -217,10 +222,11 @@ static symbol_t *symbol_check_expr(
     switch (expr->primary.kind) {
     case PRIMARY_INT:
     case PRIMARY_FLOAT:
-    case PRIMARY_PRIMITIVE_TYPE: break;
+    case PRIMARY_PRIMITIVE_TYPE:
+    case PRIMARY_STRING: break;
 
     case PRIMARY_IDENT: {
-      symbol_t *sym = scope_get(&operand_block->scope, expr->primary.ident);
+      symbol_t *sym = scope_get(&operand_block->scope, expr->primary.string);
       if (!sym) {
         error(a, expr->pos, "invalid identifier");
         break;
@@ -301,7 +307,49 @@ static symbol_t *symbol_check_expr(
   } break;
 
   case EXPR_PROC: {
+    scope_init(
+        &expr->proc.block.scope,
+        &operand_block->scope,
+        expr->proc.block.stmts.count + expr->proc.sig.params.count);
 
+    expr->proc.block.scope.proc = &expr->proc;
+
+    For(param, expr->proc.sig.params) {
+      // Check procedure declaration parameters
+
+      if (param->name.count > 0) {
+        if (scope_get_local(&expr->proc.block.scope, param->name)) {
+          error(
+              a,
+              expr->pos,
+              "duplicate parameter declaration: '%.*s'",
+              (int)param->name.count,
+              param->name.buf);
+          continue;
+        }
+      }
+
+      if (!expr_as_type(a, operand_block, &param->type_expr, &param->type)) {
+        error(a, param->type_expr.pos, "expression does not represent a type");
+      }
+
+      if (param->name.count > 0) {
+        symbol_t *sym = scope_add(&expr->proc.block.scope, a->ctx, param->name);
+        sym->kind     = SYMBOL_LOCAL_VAR;
+        sym->var_decl = param;
+      }
+    }
+
+    for (size_t i = 0; i < expr->proc.sig.return_type_exprs.count; i++) {
+      // Check procedure return types
+
+      expr_t *return_expr = &expr->proc.sig.return_type_exprs.buf[i];
+      type_t *return_type = &expr->proc.sig.return_types.buf[i];
+
+      if (!expr_as_type(a, operand_block, return_expr, return_type)) {
+        error(a, return_expr->pos, "expression does not represent a type");
+      }
+    }
   } break;
 
   case EXPR_STRUCT: {
@@ -313,7 +361,8 @@ static symbol_t *symbol_check_expr(
   } break;
 
   case EXPR_BLOCK: {
-
+    scope_init(
+        &expr->block.scope, &operand_block->scope, expr->block.stmts.count);
   } break;
   }
 
@@ -341,6 +390,10 @@ static void type_check_expr(
     case PRIMARY_FLOAT: {
       expr->type.kind = TYPE_PRIMITIVE;
       expr->type.prim = PRIM_TYPE_F64;
+    } break;
+
+    case PRIMARY_STRING: {
+      expr->type.kind = TYPE_STRING;
     } break;
 
     case PRIMARY_PRIMITIVE_TYPE: {
@@ -427,7 +480,7 @@ static void type_check_expr(
 
     if (proc_sig == NULL) break;
 
-    expr_slice_t return_types = proc_sig->return_types;
+    type_slice_t return_types = proc_sig->return_types;
 
     if (return_types.count == 0) {
       expr->type.kind = TYPE_PRIMITIVE;
@@ -435,7 +488,7 @@ static void type_check_expr(
     }
 
     if (return_types.count >= 1) {
-      expr_as_type(a, operation_block, &return_types.buf[0], &expr->type);
+      expr->type = return_types.buf[0];
     }
 
     if (proc_sig->params.count == expr->proc_call.params.count) {
@@ -782,7 +835,10 @@ static void type_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
     else
       stmt->const_decl.type = stmt->const_decl.expr.type;
 
-    stmt->const_decl.type.name = stmt->const_decl.name;
+    type_t dummy_type;
+    if (expr_as_type(a, block, &stmt->const_decl.expr, &dummy_type)) {
+      stmt->const_decl.type.name = stmt->const_decl.name;
+    }
   } break;
 
   case STMT_VAR_DECL: {
@@ -845,39 +901,10 @@ expr_analyze_child_block(analyzer_t *a, block_t *block, expr_t *expr) {
   expr = inner_expr(expr);
   switch (expr->kind) {
   case EXPR_PROC: {
-    scope_init(
-        &expr->proc.block.scope,
-        &block->scope,
-        expr->proc.block.stmts.count + expr->proc.sig.params.count);
-
-    expr->proc.block.scope.proc = &expr->proc;
-
-    For(param, expr->proc.sig.params) {
-      if (scope_get_local(&expr->proc.block.scope, param->name)) {
-        error(
-            a,
-            expr->pos,
-            "duplicate parameter declaration: '%.*s'",
-            (int)param->name.count,
-            param->name.buf);
-        continue;
-      }
-
-      if (!expr_as_type(a, block, &param->type_expr, &param->type)) {
-        error(a, param->type_expr.pos, "expression does not represent a type");
-      }
-
-      symbol_t *sym = scope_add(&expr->proc.block.scope, a->ctx, param->name);
-      sym->kind     = SYMBOL_LOCAL_VAR;
-      sym->var_decl = param;
-    }
-
     analyze_block_ordered(a, &expr->proc.block);
   } break;
 
   case EXPR_BLOCK: {
-    scope_init(&expr->block.scope, &block->scope, expr->block.stmts.count);
-
     analyze_block_ordered(a, &expr->block);
   } break;
 

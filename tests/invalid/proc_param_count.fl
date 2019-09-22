@@ -1,4 +1,4 @@
-sum :: proc (a: i64, b: i64) i64 {
+sum :: proc (a: i64, b: i64) -> i64 {
   
 }
 

@@ -30,12 +30,14 @@ typedef SLICE(var_decl_t) var_decl_slice_t;
 typedef enum proc_flags_t {
   PROC_FLAG_INLINE = 1 << 1,
   PROC_FLAG_EXTERN = 1 << 2,
+  PROC_FLAG_NO_BODY    = 1 << 3,
 } proc_flags_t;
 
 typedef struct proc_signature_t {
   proc_flags_t flags;
   var_decl_slice_t params;
-  expr_slice_t return_types;
+  expr_slice_t return_type_exprs;
+  type_slice_t return_types;
 } proc_signature_t;
 
 typedef struct proc_t {
@@ -83,12 +85,13 @@ typedef struct primary_expr_t {
     PRIMARY_FLOAT,
     PRIMARY_IDENT,
     PRIMARY_PRIMITIVE_TYPE,
+    PRIMARY_STRING,
   } kind;
 
   union {
     int64_t i64;
     double f64;
-    strbuf_t ident;
+    strbuf_t string;
     prim_type_t prim_type;
   };
 } primary_expr_t;
@@ -132,6 +135,7 @@ typedef struct type_t {
     TYPE_NAMESPACE, // import "asdasd.fl"
     TYPE_PRIMITIVE, // i32
     TYPE_TYPE,      // ([]*Hello)
+    TYPE_STRING,    // "hello"
     TYPE_PTR,       // *i32
     TYPE_ARRAY,     // [3]i32
     TYPE_SLICE,     // []i32

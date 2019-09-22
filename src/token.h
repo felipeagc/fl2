@@ -39,6 +39,8 @@ typedef enum {
   TOKEN_LEQ, // <=
   TOKEN_GEQ, // >=
 
+  TOKEN_ARROW, // ->
+
   TOKEN_U8,
   TOKEN_U16,
   TOKEN_U32,
@@ -52,6 +54,7 @@ typedef enum {
 
   TOKEN_BOOL,
   TOKEN_VOID,
+  TOKEN_STRING_TYPE,
 
   // Keywords:
   TOKEN_FOR,

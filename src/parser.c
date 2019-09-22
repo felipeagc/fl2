@@ -8,6 +8,12 @@ static inline bool is_at_end(parser_t *p) {
 }
 
 static inline token_t *peek(parser_t *p) { return &p->tokens.buf[p->pos]; }
+static inline token_t *prev(parser_t *p) {
+  if (p->pos > 0)
+    return &p->tokens.buf[p->pos - 1];
+  else
+    return &p->tokens.buf[p->pos];
+}
 
 static inline token_t *look(parser_t *p, size_t offset) {
   if (p->pos + offset >= p->tokens.count) return &p->tokens.buf[p->pos];
@@ -41,8 +47,8 @@ static inline token_t *consume(parser_t *p, token_type_t tok_type) {
   if (peek(p)->type != tok_type) {
     error(
         p,
-        peek(p)->pos,
-        "unexpected token, expected '%s'",
+        prev(p)->pos,
+        "unexpected token, expected '%s' after token",
         TOKEN_STRINGS[tok_type]);
     return NULL;
   } else {
@@ -122,18 +128,23 @@ static bool parse_proc(parser_t *p, proc_t *proc) {
     memset(&param, 0, sizeof(param));
     param.flags |= VAR_DECL_HAS_TYPE;
 
-    token_t *name = consume(p, TOKEN_IDENT);
-    if (!name) {
-      res = false;
-      SKIP_TO(TOKEN_RPAREN);
-      break;
+    expr_t tmp_expr;
+    if (!parse_expr(p, &tmp_expr)) res = false;
+
+    if (peek(p)->type == TOKEN_COLON) {
+      if (!consume(p, TOKEN_COLON)) res = false;
+
+      if (tmp_expr.kind == EXPR_PRIMARY &&
+          tmp_expr.primary.kind == PRIMARY_IDENT) {
+        param.name = tmp_expr.primary.string;
+      } else {
+        error(p, tmp_expr.pos, "expected parameter identifier, got expression");
+      }
+
+      if (!parse_expr(p, &param.type_expr)) res = false;
+    } else {
+      param.type_expr = tmp_expr;
     }
-
-    param.name = name->string;
-
-    if (!consume(p, TOKEN_COLON)) res = false;
-
-    if (!parse_expr(p, &param.type_expr)) res = false;
 
     if (res) {
       APPEND(proc->sig.params, param);
@@ -149,40 +160,61 @@ static bool parse_proc(parser_t *p, proc_t *proc) {
 
   if (!consume(p, TOKEN_RPAREN)) res = false;
 
-  while (peek(p)->type != TOKEN_LCURLY) {
-    expr_t return_type;
-    if (!parse_expr(p, &return_type)) {
-      res = false;
-      SKIP_TO(TOKEN_LCURLY);
-      break;
-    }
+  if (peek(p)->type == TOKEN_ARROW) {
+    next(p);
 
-    if (res) {
-      APPEND(proc->sig.return_types, return_type);
-    }
+    while (1) {
+      if (peek(p)->type == TOKEN_LCURLY || peek(p)->type == TOKEN_SEMI) {
+        break;
+      }
 
-    if (peek(p)->type != TOKEN_LCURLY) {
-      if (!consume(p, TOKEN_COMMA)) {
+      expr_t return_type_expr;
+      if (!parse_expr(p, &return_type_expr)) {
         res = false;
-        SKIP_TO(TOKEN_LCURLY);
+        next(p);
+        /* SKIP_TO(TOKEN_LCURLY); */
+        break;
+      }
+
+      if (res) {
+        APPEND(proc->sig.return_type_exprs, return_type_expr);
+      }
+
+      if (peek(p)->type == TOKEN_COMMA) {
+        if (!consume(p, TOKEN_COMMA)) res = false;
+      } else {
         break;
       }
     }
   }
 
-  if (!consume(p, TOKEN_LCURLY)) res = false;
-
-  while (peek(p)->type != TOKEN_RCURLY && !is_at_end(p)) {
-    stmt_t stmt;
-    memset(&stmt, 0, sizeof(stmt));
-    if (parse_stmt(p, &stmt)) {
-      APPEND(proc->block.stmts, stmt);
-    } else {
-      res = false;
-    }
+  if (proc->sig.return_type_exprs.count > 0) {
+    proc->sig.return_types.count = proc->sig.return_type_exprs.count;
+    proc->sig.return_types.cap   = proc->sig.return_types.count;
+    proc->sig.return_types.buf   = bump_alloc(
+        &p->ctx->alloc, sizeof(type_t) * proc->sig.return_types.count);
+    memset(proc->sig.return_types.buf, 0, sizeof(type_t));
   }
 
-  if (!consume(p, TOKEN_RCURLY)) res = false;
+  if (peek(p)->type == TOKEN_LCURLY) {
+    if (!consume(p, TOKEN_LCURLY)) res = false;
+  } else {
+    proc->sig.flags |= PROC_FLAG_NO_BODY;
+  }
+
+  if (!(proc->sig.flags & PROC_FLAG_NO_BODY)) {
+    while (peek(p)->type != TOKEN_RCURLY && !is_at_end(p)) {
+      stmt_t stmt;
+      memset(&stmt, 0, sizeof(stmt));
+      if (parse_stmt(p, &stmt)) {
+        APPEND(proc->block.stmts, stmt);
+      } else {
+        res = false;
+      }
+    }
+
+    if (!consume(p, TOKEN_RCURLY)) res = false;
+  }
 
   return res;
 }
@@ -207,8 +239,15 @@ static bool parse_primary(parser_t *p, primary_expr_t *primary) {
   case TOKEN_IDENT: {
     next(p);
 
-    primary->kind  = PRIMARY_IDENT;
-    primary->ident = tok->string;
+    primary->kind   = PRIMARY_IDENT;
+    primary->string = tok->string;
+  } break;
+
+  case TOKEN_STRING: {
+    next(p);
+
+    primary->kind   = PRIMARY_STRING;
+    primary->string = tok->string;
   } break;
 
   case TOKEN_I8:
@@ -476,8 +515,11 @@ static bool parse_decl_or_assign_or_stmt_expr(parser_t *p, stmt_t *stmt) {
 
       switch (stmt->const_decl.expr.kind) {
       case EXPR_STRUCT:
-      case EXPR_BLOCK:
-      case EXPR_PROC: break;
+      case EXPR_BLOCK: break;
+
+      case EXPR_PROC: {
+        if (!(stmt->const_decl.expr.proc.sig.flags & PROC_FLAG_NO_BODY)) break;
+      };
       default: {
         if (!consume(p, TOKEN_SEMI)) {
           res = false;
@@ -516,8 +558,6 @@ static bool parse_decl_or_assign_or_stmt_expr(parser_t *p, stmt_t *stmt) {
       stmt->expr = expr;
 
       switch (stmt->expr.kind) {
-      case EXPR_PROC:
-      case EXPR_STRUCT:
       case EXPR_BLOCK: break;
       default: {
         if (!consume(p, TOKEN_SEMI)) res = false;
