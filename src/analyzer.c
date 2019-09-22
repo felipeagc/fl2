@@ -350,6 +350,22 @@ static symbol_t *symbol_check_expr(
         error(a, return_expr->pos, "expression does not represent a type");
       }
     }
+
+    if ((expr->proc.sig.flags & (PROC_FLAG_EXTERN | PROC_FLAG_INLINE)) ==
+        (PROC_FLAG_EXTERN | PROC_FLAG_INLINE)) {
+      error(
+          a,
+          expr->pos,
+          "procedure cannot be extern and inline at the same time");
+      break;
+    }
+
+    if ((expr->proc.sig.flags & (PROC_FLAG_NO_BODY | PROC_FLAG_INLINE)) ==
+        (PROC_FLAG_NO_BODY | PROC_FLAG_INLINE)) {
+      error(a, expr->pos, "inline procedures must have a body");
+      break;
+    }
+
   } break;
 
   case EXPR_STRUCT: {

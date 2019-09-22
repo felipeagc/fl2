@@ -20,6 +20,14 @@ type_t *exact_types(type_t *received, type_t *expected) {
     assert(0);
   } break;
   case TYPE_PROC: {
+    if (received->proc_sig->flags & PROC_FLAG_EXTERN) {
+      if (!(expected->proc_sig->flags & PROC_FLAG_EXTERN)) return NULL;
+    }
+    
+    if (received->proc_sig->flags & PROC_FLAG_INLINE) {
+      if (!(expected->proc_sig->flags & PROC_FLAG_INLINE)) return NULL;
+    }
+
     if (received->proc_sig->params.count != expected->proc_sig->params.count)
       return NULL;
     if (received->proc_sig->return_types.count !=
@@ -100,7 +108,14 @@ void print_type(str_builder_t *sb, type_t *type) {
     sb_append(sb, STR("struct"));
   } break;
   case TYPE_PROC: {
-    sb_append(sb, STR("proc ("));
+    sb_append(sb, STR("proc "));
+    if (type->proc_sig->flags & PROC_FLAG_EXTERN) {
+      sb_append(sb, STR("extern "));
+    }
+    if (type->proc_sig->flags & PROC_FLAG_INLINE) {
+      sb_append(sb, STR("inline "));
+    }
+    sb_append(sb, STR("("));
     for (size_t i = 0; i < type->proc_sig->params.count; i++) {
       if (i > 0) sb_append(sb, STR(", "));
       print_type(sb, &type->proc_sig->params.buf[i].type);
