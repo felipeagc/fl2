@@ -400,12 +400,26 @@ static void type_check_expr(
     switch (expr->primary.kind) {
     case PRIMARY_INT: {
       expr->type.kind = TYPE_PRIMITIVE;
-      expr->type.prim = PRIM_TYPE_I64;
+
+      if (expected_type && expected_type->kind == TYPE_PRIMITIVE &&
+          expected_type->prim > PRIM_TYPE_NUM_BEGIN &&
+          expected_type->prim < PRIM_TYPE_NUM_END) {
+        expr->type.prim = expected_type->prim;
+      } else {
+        expr->type.prim = PRIM_TYPE_I64;
+      }
     } break;
 
     case PRIMARY_FLOAT: {
       expr->type.kind = TYPE_PRIMITIVE;
-      expr->type.prim = PRIM_TYPE_F64;
+
+      if (expected_type && expected_type->kind == TYPE_PRIMITIVE &&
+          expected_type->prim > PRIM_TYPE_FLOAT_BEGIN &&
+          expected_type->prim < PRIM_TYPE_FLOAT_END) {
+        expr->type.prim = expected_type->prim;
+      } else {
+        expr->type.prim = PRIM_TYPE_F64;
+      }
     } break;
 
     case PRIMARY_STRING: {

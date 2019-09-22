@@ -33,6 +33,8 @@ main :: proc () {
 
   aa : MyInt = 123;
 
+  int32: i32 = 123;
+
   other_const :: 123;
   some_const :: other_const;
 
@@ -44,9 +46,16 @@ main :: proc () {
 
   my_i32: i32;
 
+  my_f32: f32 = 1.23;
+  my_f64: f64 = 1.23;
+
+  my_f32 = 123;
+
   adghfdghg: i64;
   bbbb: other.Entity;
   bbbbb: Entity;
+
+  asd(123);
 
   derp :: proc () -> i32 {
     aaa :: hello.puts;

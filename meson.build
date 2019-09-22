@@ -1,5 +1,7 @@
 project('fl2', 'c', 'cpp')
 
+llvm_dep = dependency('llvm', version: '>= 8.0')
+
 cc = meson.get_compiler('c')
 m_dep = cc.find_library('m', required: false)
 
@@ -25,6 +27,7 @@ compiler_exe_sources = [
 ]
 
 compiler_deps = [
+	llvm_dep,
 	m_dep
 ]
 

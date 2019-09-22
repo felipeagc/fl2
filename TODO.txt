@@ -24,5 +24,4 @@ Parser
 
 
 Analyzer
-	automatic numeric casting
 	type hashing for fast type checking
