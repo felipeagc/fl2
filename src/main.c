@@ -12,9 +12,7 @@ int main(int argc, char *argv[]) {
   ctx_t ctx;
   ctx_init(&ctx);
 
-  ast_t ast;
-  memset(&ast, 0, sizeof(ast));
-  error_set_t result = ctx_process_file(&ctx, STR(argv[1]), &ast);
+  error_set_t result = ctx_process_main_file(&ctx, STR(argv[1]));
   if (result.errors.count > 0) {
     For(err, result.errors) { print_error(&ctx.sb, err); }
     exit(1);

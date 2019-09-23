@@ -20,6 +20,7 @@ compiler_lib_sources = [
 	'src/scanner.c',
 	'src/parser.c',
 	'src/analyzer.c',
+	'src/codegen_llvm.c',
 ]
 
 compiler_exe_sources = [

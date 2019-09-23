@@ -1,11 +1,12 @@
 #include "context.h"
 
-#include <assert.h>
-#include <stdio.h>
 #include "analyzer.h"
+#include "codegen_llvm.h"
 #include "filesystem.h"
 #include "parser.h"
 #include "scanner.h"
+#include <assert.h>
+#include <stdio.h>
 
 void ctx_init(ctx_t *ctx) {
   sb_init(&ctx->sb);
@@ -13,12 +14,24 @@ void ctx_init(ctx_t *ctx) {
   table_init(&ctx->file_table, 521);
 }
 
+error_set_t ctx_process_main_file(ctx_t *ctx, strbuf_t path) {
+  ast_t *ast = bump_alloc(&ctx->alloc, sizeof(ast_t));
+  memset(ast, 0, sizeof(*ast));
+  error_set_t result = ctx_process_file(ctx, path, ast);
+  if (result.errors.count > 0) return result;
+
+  llvm_t llvm;
+  llvm_init(&llvm, ctx);
+
+  return llvm_codegen(&llvm, ast);
+}
+
 error_set_t ctx_process_file(ctx_t *ctx, strbuf_t path, ast_t *ast) {
   char *fullpath = absolute_path(path.buf);
   strbuf_t full_path;
   full_path.count = strlen(fullpath);
-  full_path.cap = full_path.count + 1;
-  full_path.buf = fullpath;
+  full_path.cap   = full_path.count + 1;
+  full_path.buf   = fullpath;
 
   assert((path.count + 1) == path.cap);
 
@@ -30,8 +43,8 @@ error_set_t ctx_process_file(ctx_t *ctx, strbuf_t path, ast_t *ast) {
   if (!file) {
     file_t *file = bump_alloc(&ctx->alloc, sizeof(file_t));
     if (!file_init(file, ctx, full_path)) {
-      printf("Failed to open file: %.*s\n", (int)full_path.count,
-             full_path.buf);
+      printf(
+          "Failed to open file: %.*s\n", (int)full_path.count, full_path.buf);
       exit(1);
     }
 

@@ -16,6 +16,8 @@ typedef struct ctx_t {
 
 void ctx_init(ctx_t *ctx);
 
+error_set_t ctx_process_main_file(ctx_t *ctx, strbuf_t path);
+
 error_set_t ctx_process_file(ctx_t *ctx, strbuf_t path, ast_t *ast);
 
 void ctx_destroy(ctx_t *ctx);
