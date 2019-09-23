@@ -329,6 +329,7 @@ static symbol_t *symbol_check_expr(
         symbol_t *sym = scope_add(&expr->proc.block.scope, a->ctx, param->name);
         sym->kind     = SYMBOL_LOCAL_VAR;
         sym->var_decl = param;
+        param->sym    = sym;
       }
     }
 
@@ -381,6 +382,8 @@ static void type_check_expr(
     block_t *operation_block,
     expr_t *expr,
     type_t *expected_type) {
+  expr_as_type(a, operand_block, expr, &expr->as_type);
+
   if (operation_block == NULL) operation_block = operand_block;
 
   memset(&expr->type, 0, sizeof(expr->type));
@@ -524,8 +527,13 @@ static void type_check_expr(
   } break;
 
   case EXPR_PROC: {
-    expr->type.kind     = TYPE_PROC;
-    expr->type.proc_sig = &expr->proc.sig;
+    if (expr->proc.sig.flags & PROC_FLAG_NO_BODY) {
+      expr->type.kind     = TYPE_TYPE;
+      expr->type.proc_sig = &expr->proc.sig;
+    } else {
+      expr->type.kind     = TYPE_PROC;
+      expr->type.proc_sig = &expr->proc.sig;
+    }
   } break;
 
   case EXPR_STRUCT: {
@@ -580,6 +588,7 @@ static void add_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
     symbol_t *sym   = scope_add(&block->scope, a->ctx, stmt->const_decl.name);
     sym->kind       = SYMBOL_CONST_DECL;
     sym->const_decl = &stmt->const_decl;
+    stmt->const_decl.sym = sym;
 
     expr_t *expr = inner_expr(&stmt->const_decl.expr);
 
@@ -661,7 +670,8 @@ static void add_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
     symbol_t *sym = scope_add(&block->scope, a->ctx, stmt->var_decl.name);
     sym->kind     = (scope_proc(&block->scope) == NULL) ? SYMBOL_GLOBAL_VAR
                                                     : SYMBOL_LOCAL_VAR;
-    sym->var_decl = &stmt->var_decl;
+    sym->var_decl      = &stmt->var_decl;
+    stmt->var_decl.sym = sym;
   } break;
 
   default: break;

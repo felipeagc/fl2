@@ -165,6 +165,7 @@ typedef struct expr_t {
   expr_kind_t kind;
 
   type_t type;
+  type_t as_type;
 
   union {
     primary_expr_t primary;
@@ -198,6 +199,7 @@ typedef struct var_decl_t {
   expr_t expr;
   expr_t type_expr;
   type_t type;
+  symbol_t *sym;
 } var_decl_t;
 
 typedef struct var_assign_t {
@@ -211,6 +213,7 @@ typedef struct const_decl_t {
   expr_t type_expr;
   type_t type;
   bool typed;
+  symbol_t *sym;
 } const_decl_t;
 
 typedef struct stmt_t {

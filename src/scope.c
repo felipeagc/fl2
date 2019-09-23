@@ -36,11 +36,6 @@ symbol_t *scope_get(scope_t *s, strbuf_t name) {
 }
 
 symbol_t *scope_get_local(scope_t *s, strbuf_t name) {
-  For(sibling, s->siblings) {
-    symbol_t *sym = scope_get_local(sibling, name);
-    if (sym) return sym;
-  }
-
   return table_get(&s->table, name);
 }
 

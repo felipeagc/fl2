@@ -66,6 +66,9 @@ main :: proc () {
     asdf := global;
   }
 
+	type := Entity;
+	type = proc() -> i32;
+
   adghfdgh: proc () -> i32 = derp;
 
   my_proc: MyProcType = derp;
