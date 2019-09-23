@@ -33,7 +33,6 @@ static bool
 expr_as_type(analyzer_t *a, block_t *block, expr_t *expr, type_t *type) {
   switch (expr->kind) {
   case EXPR_PRIMARY: {
-
     switch (expr->primary.kind) {
     case PRIMARY_INT:
     case PRIMARY_FLOAT:
@@ -131,10 +130,8 @@ expr_as_type(analyzer_t *a, block_t *block, expr_t *expr, type_t *type) {
 }
 
 static symbol_t *get_expr_sym(analyzer_t *a, block_t *block, expr_t *expr) {
-  expr = inner_expr(expr);
   switch (expr->kind) {
   case EXPR_PRIMARY: {
-
     switch (expr->primary.kind) {
     case PRIMARY_INT:
     case PRIMARY_FLOAT:
@@ -189,19 +186,15 @@ static symbol_t *get_expr_sym(analyzer_t *a, block_t *block, expr_t *expr) {
   } break;
 
   case EXPR_PROC: {
-
   } break;
 
   case EXPR_STRUCT: {
-
   } break;
 
   case EXPR_IMPORT: {
-
   } break;
 
   case EXPR_BLOCK: {
-
   } break;
   }
 
@@ -218,7 +211,6 @@ static symbol_t *symbol_check_expr(
   expr = inner_expr(expr);
   switch (expr->kind) {
   case EXPR_PRIMARY: {
-
     switch (expr->primary.kind) {
     case PRIMARY_INT:
     case PRIMARY_FLOAT:
@@ -369,11 +361,9 @@ static symbol_t *symbol_check_expr(
   } break;
 
   case EXPR_STRUCT: {
-
   } break;
 
   case EXPR_IMPORT: {
-
   } break;
 
   case EXPR_BLOCK: {
@@ -595,8 +585,6 @@ static void add_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
 
     switch (expr->kind) {
     case EXPR_IMPORT: {
-      file_t *file = bump_alloc(&a->ctx->alloc, sizeof(file_t));
-
       char *dir = get_file_dir(a->ast->file->abs_path.buf);
 
       strbuf_t full_path;
@@ -614,19 +602,10 @@ static void add_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
 
       free(dir);
 
-      if (!file_init(file, a->ctx, full_path)) {
-        error(
-            a,
-            expr->pos,
-            "invalid import path: '%.*s'",
-            (int)expr->import.path.count,
-            expr->import.path.buf);
-        break;
-      }
-
       expr->import.ast = bump_alloc(&a->ctx->alloc, sizeof(ast_t));
 
-      error_set_t result = ctx_process_file(a->ctx, file, expr->import.ast);
+      error_set_t result =
+          ctx_process_file(a->ctx, full_path, expr->import.ast);
       if (result.errors.count > 0) {
         For(err, result.errors) APPEND(a->errors, *err);
       }
@@ -641,8 +620,6 @@ static void add_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
 
     switch (expr->kind) {
     case EXPR_IMPORT: {
-      file_t *file = bump_alloc(&a->ctx->alloc, sizeof(file_t));
-
       char *dir = get_file_dir(a->ast->file->abs_path.buf);
 
       strbuf_t full_path;
@@ -660,18 +637,8 @@ static void add_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
 
       free(dir);
 
-      if (!file_init(file, a->ctx, full_path)) {
-        error(
-            a,
-            expr->pos,
-            "invalid import path: '%.*s'",
-            (int)expr->import.path.count,
-            expr->import.path.buf);
-        break;
-      }
-
       ast_t *ast         = bump_alloc(&a->ctx->alloc, sizeof(ast_t));
-      error_set_t result = ctx_process_file(a->ctx, file, ast);
+      error_set_t result = ctx_process_file(a->ctx, full_path, ast);
       if (result.errors.count > 0) {
         For(err, result.errors) APPEND(a->errors, *err);
         break;

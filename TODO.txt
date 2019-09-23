@@ -24,4 +24,5 @@ Parser
 
 
 Analyzer
+	var decl & assign cannot accept compile time expressions
 	type hashing for fast type checking

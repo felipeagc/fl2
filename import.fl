@@ -23,8 +23,7 @@ main :: proc () {
   hello :: (import "other.fl");
   using (hello);
 
-
-  bb :i64= (hello.sum(1, 2));
+  bb : i64 = (hello.sum(1, 2));
   bb = 123;
 
   a: i64 : 123;
