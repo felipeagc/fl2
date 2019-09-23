@@ -125,6 +125,7 @@ typedef enum expr_kind_t {
   EXPR_EXPR,
   EXPR_STRUCT,
   EXPR_PROC,
+  EXPR_PROC_PTR,
   EXPR_IMPORT,
   EXPR_ACCESS,
   EXPR_PROC_CALL,

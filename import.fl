@@ -12,7 +12,7 @@ asd :: proc (c: i32) {
 
 }
 
-MyProcType :: proc () -> i32;
+MyProcType :: proc* () -> i32;
 
 global := 123;
 
@@ -67,9 +67,9 @@ main :: proc () {
   }
 
 	type := Entity;
-	type = proc() -> i32;
+	type = proc*() -> i32;
 
-  adghfdgh: proc () -> i32 = derp;
+  adghfdgh: proc* () -> i32 = derp;
 
   my_proc: MyProcType = derp;
 

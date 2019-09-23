@@ -86,31 +86,76 @@ static LLVMTypeRef llvm_type(llvm_t *llvm, type_t *type) {
   return NULL;
 }
 
-static void add_type(llvm_t *llvm, module_t *mod, stmt_t *stmt) {
-  switch (stmt->kind) {
-  case STMT_CONST_DECL: {
-    expr_t *expr = inner_expr(&stmt->const_decl.expr);
-    if (expr->type.kind == TYPE_TYPE) {
-      LLVMTypeRef llvm_ty = llvm_type(llvm, &expr->as_type);
+static void ast_add_types(llvm_t *llvm, module_t *mod, block_t *block) {
+  For(stmt, block->stmts) {
+    switch (stmt->kind) {
+    case STMT_CONST_DECL: {
+      expr_t *expr = inner_expr(&stmt->const_decl.expr);
+      if (expr->type.kind == TYPE_TYPE) {
+        LLVMTypeRef llvm_ty = llvm_type(llvm, &expr->as_type);
+      }
+    } break;
+
+    case STMT_USING: {
+      // TODO: generate imported stuff
+
+    } break;
+
+    default: break;
     }
-  } break;
-
-  case STMT_USING: {
-    // TODO: generate imported stuff
-
-  } break;
-
-  default: break;
   }
 }
 
-static void ast_add_types(llvm_t *llvm, module_t *mod, ast_t *ast) {
-  For(stmt, ast->block.stmts) { add_type(llvm, mod, stmt); }
+static void ast_add_procs(llvm_t *llvm, module_t *mod, block_t *block) {
+  For(stmt, block->stmts) {
+    switch (stmt->kind) {
+    case STMT_CONST_DECL: {
+      expr_t *expr = inner_expr(&stmt->const_decl.expr);
+      if (expr->kind == EXPR_PROC) {
+
+        proc_t *proc = &expr->proc;
+
+        char *fun_name   = bump_c_str(&llvm->ctx->alloc, stmt->const_decl.name);
+        LLVMValueRef fun = NULL;
+
+        if (proc->sig.flags & PROC_FLAG_EXTERN) {
+          fun = LLVMGetNamedFunction(mod->mod, fun_name);
+        }
+
+        if (fun == NULL) {
+          LLVMTypeRef *param_types = bump_alloc(
+              &llvm->ctx->alloc, sizeof(LLVMTypeRef) * proc->sig.params.count);
+          for (size_t i = 0; i < proc->sig.params.count; i++) {
+            param_types[i] = llvm_type(llvm, &proc->sig.params.buf[i].type);
+          }
+
+          LLVMTypeRef return_type =
+              llvm_type(llvm, &proc->sig.return_types.buf[0]);
+
+          LLVMTypeRef fun_type = LLVMFunctionType(
+              return_type, param_types, proc->sig.params.count, false);
+          fun = LLVMAddFunction(mod->mod, fun_name, fun_type);
+
+          if (proc->sig.flags & PROC_FLAG_EXTERN) {
+            LLVMSetLinkage(fun, LLVMExternalLinkage);
+          }
+        }
+      }
+    } break;
+
+    case STMT_USING: {
+      // TODO: generate imported stuff
+
+    } break;
+
+    default: break;
+    }
+  }
 }
 
-static void codegen_ast(llvm_t *llvm, module_t *mod, ast_t *ast) {
-  ast_add_types(llvm, mod, ast);
-  /* ast_add_procs(llvm, mod, ast); */
+static void codegen_ast(llvm_t *llvm, module_t *mod, block_t *block) {
+  ast_add_types(llvm, mod, block);
+  ast_add_procs(llvm, mod, block);
   /* ast_codegen_stmts(llvm, mod, ast); */
 }
 
@@ -123,7 +168,7 @@ error_set_t llvm_codegen(llvm_t *llvm, ast_t *ast) {
   module_t mod;
   mod_init(&mod, "main");
 
-  codegen_ast(llvm, &mod, ast);
+  codegen_ast(llvm, &mod, &ast->block);
 
   printf("%s\n", LLVMPrintModuleToString(mod.mod));
 

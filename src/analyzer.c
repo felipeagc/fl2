@@ -104,11 +104,13 @@ expr_as_type(analyzer_t *a, block_t *block, expr_t *expr, type_t *type) {
   } break;
 
   case EXPR_PROC: {
-    if (expr->proc.sig.flags & PROC_FLAG_NO_BODY) {
-      type->kind     = TYPE_PROC;
-      type->proc_sig = &expr->proc.sig;
-      return true;
-    }
+    return false;
+  } break;
+
+  case EXPR_PROC_PTR: {
+    type->kind     = TYPE_PROC;
+    type->proc_sig = &expr->proc.sig;
+    return true;
   } break;
 
   case EXPR_STRUCT: {
@@ -186,6 +188,9 @@ static symbol_t *get_expr_sym(analyzer_t *a, block_t *block, expr_t *expr) {
   } break;
 
   case EXPR_PROC: {
+  } break;
+
+  case EXPR_PROC_PTR: {
   } break;
 
   case EXPR_STRUCT: {
@@ -298,6 +303,7 @@ static symbol_t *symbol_check_expr(
     }
   } break;
 
+  case EXPR_PROC_PTR:
   case EXPR_PROC: {
     scope_init(
         &expr->proc.block.scope,
@@ -526,14 +532,14 @@ static void type_check_expr(
     }
   } break;
 
+  case EXPR_PROC_PTR: {
+    expr->type.kind     = TYPE_TYPE;
+    expr->type.proc_sig = &expr->proc.sig;
+  } break;
+
   case EXPR_PROC: {
-    if (expr->proc.sig.flags & PROC_FLAG_NO_BODY) {
-      expr->type.kind     = TYPE_TYPE;
-      expr->type.proc_sig = &expr->proc.sig;
-    } else {
-      expr->type.kind     = TYPE_PROC;
-      expr->type.proc_sig = &expr->proc.sig;
-    }
+    expr->type.kind     = TYPE_PROC;
+    expr->type.proc_sig = &expr->proc.sig;
   } break;
 
   case EXPR_STRUCT: {

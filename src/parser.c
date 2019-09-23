@@ -102,21 +102,28 @@ static bool parse_struct(parser_t *p, struct_t *str) {
   return res;
 }
 
-static bool parse_proc(parser_t *p, proc_t *proc) {
+static bool parse_proc(parser_t *p, expr_t *expr) {
   bool res = true;
 
-  memset(proc, 0, sizeof(*proc));
+  expr->kind = EXPR_PROC;
+
+  memset(&expr->proc, 0, sizeof(expr->proc));
 
   if (!consume(p, TOKEN_PROC)) res = false;
 
+  if (peek(p)->type == TOKEN_MUL) {
+    if (!consume(p, TOKEN_MUL)) res = false;
+    expr->kind = EXPR_PROC_PTR;
+  }
+
   if (peek(p)->type == TOKEN_EXTERN) {
     next(p);
-    proc->sig.flags |= PROC_FLAG_EXTERN;
+    expr->proc.sig.flags |= PROC_FLAG_EXTERN;
   }
 
   if (peek(p)->type == TOKEN_INLINE) {
     next(p);
-    proc->sig.flags |= PROC_FLAG_INLINE;
+    expr->proc.sig.flags |= PROC_FLAG_INLINE;
   }
 
   if (!consume(p, TOKEN_LPAREN)) res = false;
@@ -147,7 +154,7 @@ static bool parse_proc(parser_t *p, proc_t *proc) {
     }
 
     if (res) {
-      APPEND(proc->sig.params, param);
+      APPEND(expr->proc.sig.params, param);
     }
 
     if (peek(p)->type != TOKEN_RPAREN) {
@@ -177,7 +184,7 @@ static bool parse_proc(parser_t *p, proc_t *proc) {
       }
 
       if (res) {
-        APPEND(proc->sig.return_type_exprs, return_type_expr);
+        APPEND(expr->proc.sig.return_type_exprs, return_type_expr);
       }
 
       if (peek(p)->type == TOKEN_COMMA) {
@@ -188,26 +195,33 @@ static bool parse_proc(parser_t *p, proc_t *proc) {
     }
   }
 
-  if (proc->sig.return_type_exprs.count > 0) {
-    proc->sig.return_types.count = proc->sig.return_type_exprs.count;
-    proc->sig.return_types.cap   = proc->sig.return_types.count;
-    proc->sig.return_types.buf   = bump_alloc(
-        &p->ctx->alloc, sizeof(type_t) * proc->sig.return_types.count);
-    memset(proc->sig.return_types.buf, 0, sizeof(type_t));
+  if (expr->proc.sig.return_type_exprs.count == 0) {
+    expr_t void_expr;
+    memset(&void_expr, 0, sizeof(void_expr));
+    void_expr.kind              = EXPR_PRIMARY;
+    void_expr.primary.kind      = PRIMARY_PRIMITIVE_TYPE;
+    void_expr.primary.prim_type = PRIM_TYPE_VOID;
+    APPEND(expr->proc.sig.return_type_exprs, void_expr);
   }
+
+  expr->proc.sig.return_types.count = expr->proc.sig.return_type_exprs.count;
+  expr->proc.sig.return_types.cap   = expr->proc.sig.return_types.count;
+  expr->proc.sig.return_types.buf   = bump_alloc(
+      &p->ctx->alloc, sizeof(type_t) * expr->proc.sig.return_types.count);
+  memset(expr->proc.sig.return_types.buf, 0, sizeof(type_t));
 
   if (peek(p)->type == TOKEN_LCURLY) {
     if (!consume(p, TOKEN_LCURLY)) res = false;
   } else {
-    proc->sig.flags |= PROC_FLAG_NO_BODY;
+    expr->proc.sig.flags |= PROC_FLAG_NO_BODY;
   }
 
-  if (!(proc->sig.flags & PROC_FLAG_NO_BODY)) {
+  if (!(expr->proc.sig.flags & PROC_FLAG_NO_BODY) && expr->kind == EXPR_PROC) {
     while (peek(p)->type != TOKEN_RCURLY && !is_at_end(p)) {
       stmt_t stmt;
       memset(&stmt, 0, sizeof(stmt));
       if (parse_stmt(p, &stmt)) {
-        APPEND(proc->block.stmts, stmt);
+        APPEND(expr->proc.block.stmts, stmt);
       } else {
         res = false;
       }
@@ -379,8 +393,7 @@ static bool parse_access(parser_t *p, expr_t *expr) {
 static bool parse_struct_proc_import(parser_t *p, expr_t *expr) {
   switch (peek(p)->type) {
   case TOKEN_PROC: {
-    expr->kind = EXPR_PROC;
-    return parse_proc(p, &expr->proc);
+    return parse_proc(p, expr);
   } break;
   case TOKEN_STRUCT: {
     expr->kind = EXPR_STRUCT;
