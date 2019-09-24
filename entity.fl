@@ -1,1 +1,3 @@
 Entity :: struct {}
+
+move :: proc (e: Entity) {}

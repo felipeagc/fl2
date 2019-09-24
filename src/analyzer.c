@@ -29,19 +29,24 @@ static void analyze_block_ordered(analyzer_t *a, block_t *block);
 
 static symbol_t *get_expr_sym(analyzer_t *a, block_t *block, expr_t *expr);
 
-static bool
-expr_as_type(analyzer_t *a, block_t *block, expr_t *expr, type_t *type) {
+static bool expr_as_type(analyzer_t *a, block_t *block, expr_t *expr) {
+  bool res = false;
+  if (expr->as_type) return true;
+
   switch (expr->kind) {
   case EXPR_PRIMARY: {
     switch (expr->primary.kind) {
     case PRIMARY_INT:
     case PRIMARY_FLOAT:
-    case PRIMARY_STRING: return false;
+    case PRIMARY_STRING: break;
 
     case PRIMARY_PRIMITIVE_TYPE: {
-      type->kind = TYPE_PRIMITIVE;
-      type->prim = expr->primary.prim_type;
-      return true;
+      type_t *ty = bump_alloc(&a->ctx->alloc, sizeof(type_t));
+      memset(ty, 0, sizeof(*ty));
+      expr->as_type = ty;
+      ty->kind      = TYPE_PRIMITIVE;
+      ty->prim      = expr->primary.prim_type;
+      res           = true;
     } break;
 
     case PRIMARY_IDENT: {
@@ -49,8 +54,11 @@ expr_as_type(analyzer_t *a, block_t *block, expr_t *expr, type_t *type) {
       if (sym) {
         switch (sym->kind) {
         case SYMBOL_CONST_DECL: {
-          bool res   = expr_as_type(a, block, &sym->const_decl->expr, type);
-          type->name = sym->const_decl->name;
+          res = expr_as_type(a, block, &sym->const_decl->expr);
+          if (res) {
+            expr->as_type                       = sym->const_decl->expr.as_type;
+            sym->const_decl->expr.as_type->name = sym->const_decl->name;
+          }
           return res;
         } break;
 
@@ -63,7 +71,9 @@ expr_as_type(analyzer_t *a, block_t *block, expr_t *expr, type_t *type) {
   } break;
 
   case EXPR_EXPR: {
-    return expr_as_type(a, block, expr->expr, type);
+    res           = expr_as_type(a, block, expr->expr);
+    expr->as_type = expr->expr->as_type;
+    return res;
   } break;
 
   case EXPR_ACCESS: {
@@ -76,8 +86,10 @@ expr_as_type(analyzer_t *a, block_t *block, expr_t *expr, type_t *type) {
 
         switch (decl_expr->kind) {
         case EXPR_IMPORT: {
-          return expr_as_type(
-              a, &decl_expr->import.ast->block, expr->access.right, type);
+          res = expr_as_type(
+              a, &decl_expr->import.ast->block, expr->access.right);
+          expr->as_type = expr->access.right->as_type;
+          return res;
         } break;
 
         default: break;
@@ -96,39 +108,40 @@ expr_as_type(analyzer_t *a, block_t *block, expr_t *expr, type_t *type) {
 
   case EXPR_BINARY: {
     // TODO
-    return false;
   } break;
 
   case EXPR_PROC_CALL: {
-    return false;
   } break;
 
   case EXPR_PROC: {
-    return false;
   } break;
 
   case EXPR_PROC_PTR: {
-    type->kind     = TYPE_PROC;
-    type->proc_sig = &expr->proc.sig;
-    return true;
+    type_t *ty = bump_alloc(&a->ctx->alloc, sizeof(type_t));
+    memset(ty, 0, sizeof(*ty));
+    expr->as_type = ty;
+    ty->kind      = TYPE_PROC;
+    ty->proc_sig  = &expr->proc.sig;
+    res           = true;
   } break;
 
   case EXPR_STRUCT: {
-    type->kind = TYPE_STRUCT;
-    type->str  = &expr->str;
-    return true;
+    type_t *ty = bump_alloc(&a->ctx->alloc, sizeof(type_t));
+    memset(ty, 0, sizeof(*ty));
+    expr->as_type = ty;
+    ty->kind      = TYPE_STRUCT;
+    ty->str       = &expr->str;
+    res           = true;
   } break;
 
   case EXPR_IMPORT: {
-    return false;
   } break;
 
   case EXPR_BLOCK: {
-    return false;
   } break;
   }
 
-  return false;
+  return res;
 }
 
 static symbol_t *get_expr_sym(analyzer_t *a, block_t *block, expr_t *expr) {
@@ -278,8 +291,8 @@ static symbol_t *symbol_check_expr(
     if (proc_sym) {
       switch (proc_sym->kind) {
       case SYMBOL_CONST_DECL: {
-        if (proc_sym->const_decl->type.kind == TYPE_PROC) {
-          proc_sig = proc_sym->const_decl->type.proc_sig;
+        if (proc_sym->const_decl->type->kind == TYPE_PROC) {
+          proc_sig = proc_sym->const_decl->type->proc_sig;
         }
       } break;
       default: break;
@@ -327,9 +340,11 @@ static symbol_t *symbol_check_expr(
         }
       }
 
-      if (!expr_as_type(a, operand_block, &param->type_expr, &param->type)) {
+      if (!expr_as_type(a, operand_block, &param->type_expr)) {
         error(a, param->type_expr.pos, "expression does not represent a type");
       }
+
+      param->type = param->type_expr.as_type;
 
       if (param->name.count > 0) {
         symbol_t *sym = scope_add(&expr->proc.block.scope, a->ctx, param->name);
@@ -339,13 +354,12 @@ static symbol_t *symbol_check_expr(
       }
     }
 
-    for (size_t i = 0; i < expr->proc.sig.return_type_exprs.count; i++) {
+    for (size_t i = 0; i < expr->proc.sig.return_types.count; i++) {
       // Check procedure return types
 
-      expr_t *return_expr = &expr->proc.sig.return_type_exprs.buf[i];
-      type_t *return_type = &expr->proc.sig.return_types.buf[i];
+      expr_t *return_expr = &expr->proc.sig.return_types.buf[i];
 
-      if (!expr_as_type(a, operand_block, return_expr, return_type)) {
+      if (!expr_as_type(a, operand_block, return_expr)) {
         error(a, return_expr->pos, "expression does not represent a type");
       }
     }
@@ -388,7 +402,7 @@ static void type_check_expr(
     block_t *operation_block,
     expr_t *expr,
     type_t *expected_type) {
-  expr_as_type(a, operand_block, expr, &expr->as_type);
+  expr_as_type(a, operand_block, expr);
 
   if (operation_block == NULL) operation_block = operand_block;
 
@@ -398,35 +412,51 @@ static void type_check_expr(
   case EXPR_PRIMARY: {
     switch (expr->primary.kind) {
     case PRIMARY_INT: {
-      expr->type.kind = TYPE_PRIMITIVE;
+      type_t *ty = bump_alloc(&a->ctx->alloc, sizeof(type_t));
+      memset(ty, 0, sizeof(*ty));
+      expr->type = ty;
+
+      ty->kind = TYPE_PRIMITIVE;
 
       if (expected_type && expected_type->kind == TYPE_PRIMITIVE &&
           expected_type->prim > PRIM_TYPE_NUM_BEGIN &&
           expected_type->prim < PRIM_TYPE_NUM_END) {
-        expr->type.prim = expected_type->prim;
+        ty->prim = expected_type->prim;
       } else {
-        expr->type.prim = PRIM_TYPE_I64;
+        ty->prim = PRIM_TYPE_I64;
       }
     } break;
 
     case PRIMARY_FLOAT: {
-      expr->type.kind = TYPE_PRIMITIVE;
+      type_t *ty = bump_alloc(&a->ctx->alloc, sizeof(type_t));
+      memset(ty, 0, sizeof(*ty));
+      expr->type = ty;
+
+      ty->kind = TYPE_PRIMITIVE;
 
       if (expected_type && expected_type->kind == TYPE_PRIMITIVE &&
           expected_type->prim > PRIM_TYPE_FLOAT_BEGIN &&
           expected_type->prim < PRIM_TYPE_FLOAT_END) {
-        expr->type.prim = expected_type->prim;
+        ty->prim = expected_type->prim;
       } else {
-        expr->type.prim = PRIM_TYPE_F64;
+        ty->prim = PRIM_TYPE_F64;
       }
     } break;
 
     case PRIMARY_STRING: {
-      expr->type.kind = TYPE_STRING;
+      type_t *ty = bump_alloc(&a->ctx->alloc, sizeof(type_t));
+      memset(ty, 0, sizeof(*ty));
+      expr->type = ty;
+
+      ty->kind = TYPE_STRING;
     } break;
 
     case PRIMARY_PRIMITIVE_TYPE: {
-      expr->type.kind = TYPE_TYPE;
+      type_t *ty = bump_alloc(&a->ctx->alloc, sizeof(type_t));
+      memset(ty, 0, sizeof(*ty));
+      expr->type = ty;
+
+      ty->kind = TYPE_TYPE;
     } break;
 
     case PRIMARY_IDENT: {
@@ -499,8 +529,8 @@ static void type_check_expr(
     if (proc_sym) {
       switch (proc_sym->kind) {
       case SYMBOL_CONST_DECL: {
-        if (proc_sym->const_decl->type.kind == TYPE_PROC) {
-          proc_sig = proc_sym->const_decl->type.proc_sig;
+        if (proc_sym->const_decl->type->kind == TYPE_PROC) {
+          proc_sig = proc_sym->const_decl->type->proc_sig;
         }
       } break;
       default: break;
@@ -509,15 +539,11 @@ static void type_check_expr(
 
     if (proc_sig == NULL) break;
 
-    type_slice_t return_types = proc_sig->return_types;
-
-    if (return_types.count == 0) {
-      expr->type.kind = TYPE_PRIMITIVE;
-      expr->type.prim = PRIM_TYPE_VOID;
-    }
+    expr_slice_t return_types = proc_sig->return_types;
 
     if (return_types.count >= 1) {
-      expr->type = return_types.buf[0];
+      expr_as_type(a, operand_block, &return_types.buf[0]);
+      expr->type = return_types.buf[0].as_type;
     }
 
     if (proc_sig->params.count == expr->proc_call.params.count) {
@@ -527,49 +553,71 @@ static void type_check_expr(
             operand_block,
             NULL,
             &expr->proc_call.params.buf[i],
-            &proc_sig->params.buf[i].type);
+            proc_sig->params.buf[i].type);
       }
     }
   } break;
 
   case EXPR_PROC_PTR: {
-    expr->type.kind     = TYPE_TYPE;
-    expr->type.proc_sig = &expr->proc.sig;
+    type_t *ty = bump_alloc(&a->ctx->alloc, sizeof(type_t));
+    memset(ty, 0, sizeof(*ty));
+    expr->type = ty;
+
+    ty->kind     = TYPE_TYPE;
+    ty->proc_sig = &expr->proc.sig;
   } break;
 
   case EXPR_PROC: {
-    expr->type.kind     = TYPE_PROC;
-    expr->type.proc_sig = &expr->proc.sig;
+    type_t *ty = bump_alloc(&a->ctx->alloc, sizeof(type_t));
+    memset(ty, 0, sizeof(*ty));
+    expr->type = ty;
+
+    ty->kind     = TYPE_PROC;
+    ty->proc_sig = &expr->proc.sig;
   } break;
 
   case EXPR_STRUCT: {
-    expr->type.kind = TYPE_TYPE;
+    type_t *ty = bump_alloc(&a->ctx->alloc, sizeof(type_t));
+    memset(ty, 0, sizeof(*ty));
+    expr->type = ty;
+
+    ty->kind = TYPE_TYPE;
   } break;
 
   case EXPR_IMPORT: {
-    expr->type.kind = TYPE_NAMESPACE;
+    type_t *ty = bump_alloc(&a->ctx->alloc, sizeof(type_t));
+    memset(ty, 0, sizeof(*ty));
+    expr->type = ty;
+
+    ty->kind = TYPE_NAMESPACE;
   } break;
 
   case EXPR_BLOCK: {
-    expr->type.kind = TYPE_PRIMITIVE;
-    expr->type.prim = PRIM_TYPE_VOID;
+    type_t *ty = bump_alloc(&a->ctx->alloc, sizeof(type_t));
+    memset(ty, 0, sizeof(*ty));
+    expr->type = ty;
+
+    ty->kind = TYPE_PRIMITIVE;
+    ty->prim = PRIM_TYPE_VOID;
   } break;
   }
 
-  if (expr->type.kind == TYPE_UNDEFINED) {
+  if (!expr->type) {
+    // TODO: remove this error message, but keep the return
+    // This message is only for debugging purposes
     error(a, expr->pos, "undefined type");
     return;
   }
 
   if (expected_type) {
-    if (!equivalent_types(expected_type, &expr->type)) {
+    if (!equivalent_types(expected_type, expr->type)) {
       sb_reset(&a->ctx->sb);
       print_type(&a->ctx->sb, expected_type);
       strbuf_t expected_name =
           bump_strdup(&a->ctx->alloc, sb_build(&a->ctx->sb));
 
       sb_reset(&a->ctx->sb);
-      print_type(&a->ctx->sb, &expr->type);
+      print_type(&a->ctx->sb, expr->type);
       strbuf_t actual_name = bump_strdup(&a->ctx->alloc, sb_build(&a->ctx->sb));
 
       error(
@@ -826,13 +874,8 @@ static void symbol_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
 static void type_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
   switch (stmt->kind) {
   case STMT_CONST_DECL: {
-    type_t type;
-    memset(&type, 0, sizeof(type));
-
-    type_t *expected_type = NULL;
     if (stmt->const_decl.typed) {
-      expected_type = &type;
-      if (!expr_as_type(a, block, &stmt->const_decl.type_expr, &type)) {
+      if (!expr_as_type(a, block, &stmt->const_decl.type_expr)) {
         error(
             a,
             stmt->const_decl.type_expr.pos,
@@ -841,16 +884,20 @@ static void type_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
       }
     }
 
+    type_t *expected_type = NULL;
+    if (stmt->const_decl.typed)
+      expected_type = stmt->const_decl.type_expr.as_type;
+
     type_check_expr(a, block, NULL, &stmt->const_decl.expr, expected_type);
 
     if (expected_type)
-      stmt->const_decl.type = *expected_type;
+      stmt->const_decl.type = expected_type;
     else
       stmt->const_decl.type = stmt->const_decl.expr.type;
 
-    type_t dummy_type;
-    if (expr_as_type(a, block, &stmt->const_decl.expr, &dummy_type)) {
-      stmt->const_decl.type.name = stmt->const_decl.name;
+    if (expr_as_type(a, block, &stmt->const_decl.expr)) {
+      // If the constant expression is a type, give the type a name
+      stmt->const_decl.type->name = stmt->const_decl.name;
     }
   } break;
 
@@ -858,11 +905,8 @@ static void type_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
     type_t type;
     memset(&type, 0, sizeof(type));
 
-    type_t *expected_type = NULL;
-
     if (stmt->var_decl.flags & VAR_DECL_HAS_TYPE) {
-      expected_type = &type;
-      if (!expr_as_type(a, block, &stmt->var_decl.type_expr, &type)) {
+      if (!expr_as_type(a, block, &stmt->var_decl.type_expr)) {
         error(
             a,
             stmt->var_decl.type_expr.pos,
@@ -871,12 +915,16 @@ static void type_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
       }
     }
 
+    type_t *expected_type = NULL;
+    if (stmt->var_decl.flags & VAR_DECL_HAS_TYPE)
+      expected_type = stmt->var_decl.type_expr.as_type;
+
     if (stmt->var_decl.flags & VAR_DECL_HAS_EXPR) {
       type_check_expr(a, block, NULL, &stmt->var_decl.expr, expected_type);
     }
 
     if (expected_type)
-      stmt->var_decl.type = *expected_type;
+      stmt->var_decl.type = expected_type;
     else if (stmt->var_decl.flags & VAR_DECL_HAS_EXPR)
       stmt->var_decl.type = stmt->var_decl.expr.type;
   } break;
@@ -884,11 +932,7 @@ static void type_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
   case STMT_VAR_ASSIGN: {
     type_check_expr(a, block, NULL, &stmt->var_assign.assigned, NULL);
     type_check_expr(
-        a,
-        block,
-        NULL,
-        &stmt->var_assign.expr,
-        &stmt->var_assign.assigned.type);
+        a, block, NULL, &stmt->var_assign.expr, stmt->var_assign.assigned.type);
   } break;
 
   case STMT_EXPR: {

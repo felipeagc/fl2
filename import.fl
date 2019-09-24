@@ -51,8 +51,10 @@ main :: proc () {
   my_f32 = 123;
 
   adghfdghg: i64;
-  bbbb: other.Entity;
-  bbbbb: Entity;
+  e1: other.Entity;
+  e2: Entity;
+  e3: Entity;
+  e4: Entity;
 
   asd(123);
 
@@ -65,9 +67,6 @@ main :: proc () {
     aaaa := derp();
     asdf := global;
   }
-
-	type := Entity;
-	type = proc*() -> i32;
 
   adghfdgh: proc* () -> i32 = derp;
 

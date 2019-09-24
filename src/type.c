@@ -36,11 +36,11 @@ type_t *exact_types(type_t *received, type_t *expected) {
     for (size_t i = 0; i < received->proc_sig->params.count; i++) {
       var_decl_t *param1 = &received->proc_sig->params.buf[i];
       var_decl_t *param2 = &expected->proc_sig->params.buf[i];
-      if (!exact_types(&param1->type, &param2->type)) return NULL;
+      if (!exact_types(param1->type, param2->type)) return NULL;
     }
     for (size_t i = 0; i < received->proc_sig->return_types.count; i++) {
-      type_t *type1 = &received->proc_sig->return_types.buf[i];
-      type_t *type2 = &expected->proc_sig->return_types.buf[i];
+      type_t *type1 = received->proc_sig->return_types.buf[i].as_type;
+      type_t *type2 = expected->proc_sig->return_types.buf[i].as_type;
       if (!exact_types(type1, type2)) return NULL;
     }
   } break;
@@ -122,14 +122,14 @@ void print_type(str_builder_t *sb, type_t *type) {
     sb_append(sb, STR("("));
     for (size_t i = 0; i < type->proc_sig->params.count; i++) {
       if (i > 0) sb_append(sb, STR(", "));
-      print_type(sb, &type->proc_sig->params.buf[i].type);
+      print_type(sb, type->proc_sig->params.buf[i].type);
     }
     sb_append(sb, STR(")"));
     if (type->proc_sig->return_types.count > 0) {
       sb_append(sb, STR(" -> "));
       for (size_t i = 0; i < type->proc_sig->return_types.count; i++) {
         if (i > 0) sb_append(sb, STR(", "));
-        print_type(sb, &type->proc_sig->return_types.buf[i]);
+        print_type(sb, type->proc_sig->return_types.buf[i].as_type);
       }
     }
   } break;

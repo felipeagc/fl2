@@ -184,7 +184,7 @@ static bool parse_proc(parser_t *p, expr_t *expr) {
       }
 
       if (res) {
-        APPEND(expr->proc.sig.return_type_exprs, return_type_expr);
+        APPEND(expr->proc.sig.return_types, return_type_expr);
       }
 
       if (peek(p)->type == TOKEN_COMMA) {
@@ -195,20 +195,14 @@ static bool parse_proc(parser_t *p, expr_t *expr) {
     }
   }
 
-  if (expr->proc.sig.return_type_exprs.count == 0) {
+  if (expr->proc.sig.return_types.count == 0) {
     expr_t void_expr;
     memset(&void_expr, 0, sizeof(void_expr));
     void_expr.kind              = EXPR_PRIMARY;
     void_expr.primary.kind      = PRIMARY_PRIMITIVE_TYPE;
     void_expr.primary.prim_type = PRIM_TYPE_VOID;
-    APPEND(expr->proc.sig.return_type_exprs, void_expr);
+    APPEND(expr->proc.sig.return_types, void_expr);
   }
-
-  expr->proc.sig.return_types.count = expr->proc.sig.return_type_exprs.count;
-  expr->proc.sig.return_types.cap   = expr->proc.sig.return_types.count;
-  expr->proc.sig.return_types.buf   = bump_alloc(
-      &p->ctx->alloc, sizeof(type_t) * expr->proc.sig.return_types.count);
-  memset(expr->proc.sig.return_types.buf, 0, sizeof(type_t));
 
   if (peek(p)->type == TOKEN_LCURLY) {
     if (!consume(p, TOKEN_LCURLY)) res = false;

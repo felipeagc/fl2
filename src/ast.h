@@ -11,7 +11,9 @@ typedef struct stmt_t stmt_t;
 typedef SLICE(stmt_t) stmt_slice_t;
 
 typedef struct type_t type_t;
-typedef SLICE(type_t) type_slice_t;
+
+typedef struct LLVMOpaqueValue *LLVMValueRef;
+typedef struct LLVMOpaqueType *LLVMTypeRef;
 
 typedef struct block_t {
   scope_t scope;
@@ -36,8 +38,7 @@ typedef enum proc_flags_t {
 typedef struct proc_signature_t {
   proc_flags_t flags;
   var_decl_slice_t params;
-  expr_slice_t return_type_exprs;
-  type_slice_t return_types;
+  expr_slice_t return_types;
 } proc_signature_t;
 
 typedef struct proc_t {
@@ -159,14 +160,16 @@ typedef struct type_t {
     struct_t *str;
     proc_signature_t *proc_sig;
   };
+
+  LLVMTypeRef ref;
 } type_t;
 
 typedef struct expr_t {
   pos_t pos;
   expr_kind_t kind;
 
-  type_t type;
-  type_t as_type;
+  type_t *type;
+  type_t *as_type;
 
   union {
     primary_expr_t primary;
@@ -199,7 +202,7 @@ typedef struct var_decl_t {
   strbuf_t name;
   expr_t expr;
   expr_t type_expr;
-  type_t type;
+  type_t *type;
   symbol_t *sym;
 } var_decl_t;
 
@@ -212,7 +215,7 @@ typedef struct const_decl_t {
   strbuf_t name;
   expr_t expr;
   expr_t type_expr;
-  type_t type;
+  type_t *type;
   bool typed;
   symbol_t *sym;
 } const_decl_t;
@@ -242,6 +245,22 @@ typedef struct ast_t {
   block_t block;
 } ast_t;
 
+typedef struct value_t {
+  enum {
+    VALUE_UNDEFINED,
+    VALUE_PROC,
+    VALUE_TYPE,
+    VALUE_CONST,
+    VALUE_GLOBAL_VAR,
+    VALUE_LOCAL_VAR,
+    VALUE_TMP_VAR,
+  } kind;
+  union {
+    LLVMValueRef value;
+    LLVMTypeRef type;
+  };
+} value_t;
+
 typedef struct symbol_t {
   enum {
     SYMBOL_DUMMY,
@@ -251,6 +270,8 @@ typedef struct symbol_t {
   } kind;
 
   scope_t *scope;
+
+  value_t value;
 
   union {
     const_decl_t *const_decl;
