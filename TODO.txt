@@ -26,3 +26,7 @@ Parser
 Analyzer
 	var decl & assign cannot accept compile time expressions
 	type hashing for fast type checking
+	force return statements
+
+Codegen
+	add function parameter values

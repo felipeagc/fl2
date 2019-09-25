@@ -450,8 +450,8 @@ error_set_t llvm_codegen(llvm_t *llvm, ast_t *ast) {
   printf("%s\n", LLVMPrintModuleToString(mod.mod));
 
   char *error = NULL;
-  if (LLVMVerifyModule(mod.mod, LLVMAbortProcessAction, &error)) {
-    printf("Failed to verify module: %s\n", error);
+  if (LLVMVerifyModule(mod.mod, LLVMReturnStatusAction, &error)) {
+    printf("Failed to verify module:\n%s\n", error);
     exit(1);
   }
 

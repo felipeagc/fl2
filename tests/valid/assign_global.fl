@@ -1,0 +1,11 @@
+global: i32;
+
+main :: proc () {
+  global = 123;
+
+  nested :: proc () {
+    global = 321;
+  }
+}
+
+

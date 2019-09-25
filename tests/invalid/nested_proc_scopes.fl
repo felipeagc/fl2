@@ -3,5 +3,6 @@ main :: proc () {
 
   other_proc :: proc () {
     a = 321;
+    b := a;
   }
 }

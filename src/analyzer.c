@@ -172,9 +172,24 @@ static symbol_t *symbol_check_expr(
 
     case PRIMARY_IDENT: {
       symbol_t *sym = scope_get(&operand_block->scope, expr->primary.string);
+
       if (!sym) {
         error(a, expr->pos, "invalid identifier");
         break;
+      }
+
+      proc_t *sym_proc   = scope_proc(sym->scope);
+      proc_t *block_proc = scope_proc(&operand_block->scope);
+
+      if (sym_proc != NULL && block_proc != NULL) {
+        if (sym_proc != block_proc) {
+          if (sym->kind == SYMBOL_LOCAL_VAR) {
+            error(
+                a,
+                expr->pos,
+                "outside identifier not accessible from this procedure");
+          }
+        }
       }
 
       return sym;
@@ -312,6 +327,13 @@ static symbol_t *symbol_check_expr(
         (PROC_FLAG_NO_BODY | PROC_FLAG_INLINE)) {
       error(a, expr->pos, "inline procedures must have a body");
       break;
+    }
+
+    if (expr->proc.sig.flags & PROC_FLAG_EXTERN) {
+      proc_t *block_proc = scope_proc(&operand_block->scope);
+      if (block_proc) {
+        error(a, expr->pos, "extern procedure has to be top level");
+      }
     }
 
   } break;
@@ -693,21 +715,7 @@ static void symbol_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
       symbol_check_expr(a, block, NULL, &stmt->var_decl.type_expr);
     }
 
-    symbol_t *sym = symbol_check_expr(a, block, NULL, &stmt->var_decl.expr);
-    if (sym) {
-      switch (sym->kind) {
-      case SYMBOL_LOCAL_VAR: {
-        proc_t *var_proc   = scope_proc(sym->scope);
-        proc_t *block_proc = scope_proc(&block->scope);
-
-        if (var_proc != block_proc) {
-          error(a, stmt->pos, "cannot capture variables from outer functions");
-        }
-      } break;
-
-      default: break;
-      }
-    }
+    symbol_check_expr(a, block, NULL, &stmt->var_decl.expr);
   } break;
 
   case STMT_VAR_ASSIGN: {
@@ -723,36 +731,9 @@ static void symbol_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
         error(a, stmt->pos, "can only assign to a variable");
       } break;
       }
-
-      switch (assigned_sym->kind) {
-      case SYMBOL_LOCAL_VAR: {
-        proc_t *var_proc   = scope_proc(assigned_sym->scope);
-        proc_t *block_proc = scope_proc(&block->scope);
-
-        if (var_proc != block_proc) {
-          error(a, stmt->pos, "cannot capture variables from outer functions");
-        }
-      } break;
-
-      default: break;
-      }
     }
 
-    symbol_t *sym = symbol_check_expr(a, block, NULL, &stmt->var_assign.expr);
-    if (sym) {
-      switch (sym->kind) {
-      case SYMBOL_LOCAL_VAR: {
-        proc_t *var_proc   = scope_proc(sym->scope);
-        proc_t *block_proc = scope_proc(&block->scope);
-
-        if (var_proc != block_proc) {
-          error(a, stmt->pos, "cannot capture variables from outer functions");
-        }
-      } break;
-
-      default: break;
-      }
-    }
+    symbol_check_expr(a, block, NULL, &stmt->var_assign.expr);
   } break;
 
   case STMT_EXPR: {
