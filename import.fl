@@ -19,9 +19,13 @@ global := 123;
 MyInt :: i64;
 MyInt32 :: i32;
 
+BigConstant :: 123123123;
+
 main :: proc () {
   hello :: (import "other.fl");
   using (hello);
+
+  bignum := BigConstant;
 
   bb : i64 = (hello.sum(1, 2));
   bb = 123;

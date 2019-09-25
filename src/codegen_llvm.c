@@ -23,11 +23,13 @@
 typedef struct {
   LLVMModuleRef mod;
   LLVMBuilderRef builder;
+  LLVMTargetDataRef data;
 } module_t;
 
 static void mod_init(module_t *mod, const char *name) {
   mod->mod     = LLVMModuleCreateWithName(name);
   mod->builder = LLVMCreateBuilder();
+  mod->data    = LLVMGetModuleDataLayout(mod->mod);
 }
 
 static void mod_destroy(module_t *mod) { LLVMDisposeBuilder(mod->builder); }
@@ -403,10 +405,12 @@ static void codegen_stmts(llvm_t *llvm, module_t *mod, block_t *block) {
       } break;
 
       case SYMBOL_LOCAL_VAR: {
+        LLVMTypeRef type_ref = llvm_type(llvm, var_decl->type);
+
         var_decl->sym->value.kind  = VALUE_LOCAL_VAR;
         var_decl->sym->value.value = LLVMBuildAlloca(
             mod->builder,
-            llvm_type(llvm, var_decl->type),
+            type_ref,
             bump_c_str(&llvm->ctx->alloc, var_decl->name));
 
         if (var_decl->flags & VAR_DECL_HAS_EXPR) {
@@ -417,6 +421,20 @@ static void codegen_stmts(llvm_t *llvm, module_t *mod, block_t *block) {
             LLVMBuildStore(
                 mod->builder, value.value, var_decl->sym->value.value);
           }
+        } else {
+          // Zero initialization
+          static LLVMValueRef zero_val = NULL;
+          if (!zero_val) zero_val = LLVMConstInt(LLVMInt8Type(), 0, false);
+
+          LLVMBuildMemSet(
+              mod->builder,
+              var_decl->sym->value.value,
+              zero_val,
+              LLVMConstInt(
+                  LLVMInt32Type(),
+                  LLVMStoreSizeOfType(mod->data, type_ref),
+                  false),
+              LLVMPreferredAlignmentOfType(mod->data, type_ref));
         }
       } break;
 
