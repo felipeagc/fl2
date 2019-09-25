@@ -8,6 +8,18 @@
 #include <assert.h>
 #include <stdio.h>
 
+#define dbg(str)                                                               \
+  printf(                                                                      \
+      "%s:%s:%u :: '%.*s'\n",                                                  \
+      __FILE__,                                                                \
+      __func__,                                                                \
+      __LINE__,                                                                \
+      (int)(str).count,                                                        \
+      (str).buf)
+
+#define dbgf(fmt, ...)                                                         \
+  printf("%s:%s:%u :: " fmt "\n", __FILE__, __func__, __LINE__, __VA_ARGS__)
+
 static void error(analyzer_t *a, pos_t pos, const char *fmt, ...) {
   sb_reset(&a->ctx->sb);
 
@@ -26,8 +38,6 @@ static void error(analyzer_t *a, pos_t pos, const char *fmt, ...) {
 
 static void analyze_block_unordered(analyzer_t *a, block_t *block);
 static void analyze_block_ordered(analyzer_t *a, block_t *block);
-
-static symbol_t *get_expr_sym(analyzer_t *a, block_t *block, expr_t *expr);
 
 static bool expr_as_type(analyzer_t *a, block_t *block, expr_t *expr) {
   bool res = false;
@@ -77,7 +87,7 @@ static bool expr_as_type(analyzer_t *a, block_t *block, expr_t *expr) {
   } break;
 
   case EXPR_ACCESS: {
-    symbol_t *sym = get_expr_sym(a, block, expr->access.left);
+    symbol_t *sym = get_expr_sym(block, expr->access.left);
 
     if (sym) {
       switch (sym->kind) {
@@ -142,81 +152,6 @@ static bool expr_as_type(analyzer_t *a, block_t *block, expr_t *expr) {
   }
 
   return res;
-}
-
-static symbol_t *get_expr_sym(analyzer_t *a, block_t *block, expr_t *expr) {
-  switch (expr->kind) {
-  case EXPR_PRIMARY: {
-    switch (expr->primary.kind) {
-    case PRIMARY_INT:
-    case PRIMARY_FLOAT:
-    case PRIMARY_PRIMITIVE_TYPE:
-    case PRIMARY_STRING: break;
-
-    case PRIMARY_IDENT: {
-      symbol_t *sym = scope_get(&block->scope, expr->primary.string);
-      if (sym) return sym;
-    } break;
-    }
-
-  } break;
-
-  case EXPR_EXPR: {
-    return get_expr_sym(a, block, expr->expr);
-  } break;
-
-  case EXPR_ACCESS: {
-    symbol_t *sym = get_expr_sym(a, block, expr->access.left);
-    if (sym) {
-      switch (sym->kind) {
-      case SYMBOL_CONST_DECL: {
-        expr_t *inner = inner_expr(&sym->const_decl->expr);
-
-        switch (inner->kind) {
-        case EXPR_IMPORT: {
-          return get_expr_sym(a, &inner->import.ast->block, expr->access.right);
-        } break;
-
-        default: break;
-        }
-
-      } break;
-
-      default: break;
-      }
-    }
-
-  } break;
-
-  case EXPR_UNARY: {
-    // TODO
-  } break;
-
-  case EXPR_BINARY: {
-    // TODO
-  } break;
-
-  case EXPR_PROC_CALL: {
-    return get_expr_sym(a, block, expr->proc_call.expr);
-  } break;
-
-  case EXPR_PROC: {
-  } break;
-
-  case EXPR_PROC_PTR: {
-  } break;
-
-  case EXPR_STRUCT: {
-  } break;
-
-  case EXPR_IMPORT: {
-  } break;
-
-  case EXPR_BLOCK: {
-  } break;
-  }
-
-  return NULL;
 }
 
 static symbol_t *symbol_check_expr(
@@ -460,7 +395,7 @@ static void type_check_expr(
     } break;
 
     case PRIMARY_IDENT: {
-      symbol_t *sym = get_expr_sym(a, operand_block, expr);
+      symbol_t *sym = get_expr_sym(operand_block, expr);
       if (!sym) break;
 
       switch (sym->kind) {
@@ -487,7 +422,7 @@ static void type_check_expr(
   } break;
 
   case EXPR_ACCESS: {
-    symbol_t *sym = get_expr_sym(a, operand_block, expr->access.left);
+    symbol_t *sym = get_expr_sym(operand_block, expr->access.left);
     if (sym) {
       switch (sym->kind) {
       case SYMBOL_CONST_DECL: {
@@ -523,7 +458,7 @@ static void type_check_expr(
   } break;
 
   case EXPR_PROC_CALL: {
-    symbol_t *proc_sym = get_expr_sym(a, operation_block, expr->proc_call.expr);
+    symbol_t *proc_sym = get_expr_sym(operation_block, expr->proc_call.expr);
     proc_signature_t *proc_sig = NULL;
 
     if (proc_sym) {
@@ -919,14 +854,47 @@ static void type_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
     if (stmt->var_decl.flags & VAR_DECL_HAS_TYPE)
       expected_type = stmt->var_decl.type_expr.as_type;
 
-    if (stmt->var_decl.flags & VAR_DECL_HAS_EXPR) {
+    if (stmt->var_decl.flags & VAR_DECL_HAS_EXPR)
       type_check_expr(a, block, NULL, &stmt->var_decl.expr, expected_type);
-    }
 
     if (expected_type)
       stmt->var_decl.type = expected_type;
     else if (stmt->var_decl.flags & VAR_DECL_HAS_EXPR)
       stmt->var_decl.type = stmt->var_decl.expr.type;
+
+    switch (stmt->var_decl.type->kind) {
+    case TYPE_PRIMITIVE: {
+      if (stmt->var_decl.type->prim == PRIM_TYPE_VOID) {
+        sb_reset(&a->ctx->sb);
+        print_type(&a->ctx->sb, stmt->var_decl.type);
+        strbuf_t type_name = bump_strdup(&a->ctx->alloc, sb_build(&a->ctx->sb));
+
+        error(
+            a,
+            stmt->pos,
+            "variable declared with invalid type: '%.*s'",
+            (int)type_name.count,
+            type_name.buf);
+      }
+    } break;
+
+    case TYPE_UNDEFINED:
+    case TYPE_TYPE:
+    case TYPE_NAMESPACE: {
+      sb_reset(&a->ctx->sb);
+      print_type(&a->ctx->sb, stmt->var_decl.type);
+      strbuf_t type_name = bump_strdup(&a->ctx->alloc, sb_build(&a->ctx->sb));
+
+      error(
+          a,
+          stmt->pos,
+          "variable declared with invalid type: '%.*s'",
+          (int)type_name.count,
+          type_name.buf);
+    } break;
+
+    default: break;
+    }
   } break;
 
   case STMT_VAR_ASSIGN: {

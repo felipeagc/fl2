@@ -72,7 +72,8 @@ static LLVMTypeRef llvm_type(llvm_t *llvm, type_t *type) {
     LLVMTypeRef return_type =
         llvm_type(llvm, type->proc_sig->return_types.buf[0].as_type);
 
-    type->ref = LLVMFunctionType(return_type, param_types, param_count, false);
+    type->ref = LLVMPointerType(
+        LLVMFunctionType(return_type, param_types, param_count, false), 0);
   } break;
   case TYPE_STRUCT: {
     size_t element_count = 1;
@@ -96,8 +97,167 @@ static LLVMTypeRef llvm_type(llvm_t *llvm, type_t *type) {
   return type->ref;
 }
 
-static void
-codegen_expr(llvm_t *llvm, module_t *mod, block_t *block, expr_t *expr) {}
+static void codegen_const_expr(
+    llvm_t *llvm, module_t *mod, block_t *block, expr_t *expr, value_t *val) {
+  memset(val, 0, sizeof(*val));
+
+  switch (expr->kind) {
+  case EXPR_PRIMARY: {
+
+    switch (expr->primary.kind) {
+    case PRIMARY_INT: {
+      val->kind = VALUE_CONST;
+      val->value =
+          LLVMConstInt(llvm_type(llvm, expr->type), expr->primary.i64, false);
+    } break;
+
+    case PRIMARY_FLOAT:
+    case PRIMARY_STRING: break;
+
+    case PRIMARY_PRIMITIVE_TYPE: {
+      // Not a runtime expression
+      assert(0);
+    } break;
+
+    case PRIMARY_IDENT: {
+      symbol_t *sym = scope_get(&block->scope, expr->primary.string);
+      assert(sym);
+
+      if (sym->value.kind == VALUE_UNDEFINED) {
+        codegen_const_expr(
+            llvm, mod, block, &sym->const_decl->expr, &sym->value);
+        *val = sym->value;
+      }
+    } break;
+    }
+
+  } break;
+
+  case EXPR_EXPR: {
+    return codegen_const_expr(llvm, mod, block, expr->expr, val);
+  } break;
+
+  case EXPR_PROC: break;
+
+  case EXPR_ACCESS: {
+    // TODO
+  } break;
+
+  case EXPR_PROC_CALL: {
+    // Unimplemented
+    assert(0);
+  } break;
+
+  case EXPR_UNARY: {
+    // TODO
+  } break;
+
+  case EXPR_BINARY: {
+    // TODO
+  } break;
+
+  case EXPR_BLOCK: break;
+
+  case EXPR_STRUCT:
+  case EXPR_IMPORT:
+  case EXPR_PROC_PTR: {
+    // This isn't a runtime expression
+    assert(0);
+  } break;
+  }
+}
+
+static void codegen_expr(
+    llvm_t *llvm, module_t *mod, block_t *block, expr_t *expr, value_t *val) {
+  memset(val, 0, sizeof(*val));
+
+  switch (expr->kind) {
+  case EXPR_PRIMARY: {
+
+    switch (expr->primary.kind) {
+    case PRIMARY_INT:
+    case PRIMARY_FLOAT:
+    case PRIMARY_STRING: return codegen_const_expr(llvm, mod, block, expr, val);
+
+    case PRIMARY_PRIMITIVE_TYPE: {
+      // Not a runtime expression
+      assert(0);
+    } break;
+
+    case PRIMARY_IDENT: {
+      symbol_t *sym = scope_get(&block->scope, expr->primary.string);
+      assert(sym);
+
+      if (sym->value.kind == VALUE_UNDEFINED) {
+        switch (sym->kind) {
+        case SYMBOL_GLOBAL_VAR:
+        case SYMBOL_LOCAL_VAR: {
+          codegen_expr(llvm, mod, block, &sym->const_decl->expr, &sym->value);
+          *val = sym->value;
+        } break;
+
+        case SYMBOL_CONST_DECL: {
+          codegen_const_expr(
+              llvm, mod, block, &sym->const_decl->expr, &sym->value);
+          *val = sym->value;
+        } break;
+
+        case SYMBOL_DUMMY: assert(0);
+        }
+      }
+    } break;
+    }
+
+  } break;
+
+  case EXPR_EXPR: {
+    return codegen_expr(llvm, mod, block, expr->expr, val);
+  } break;
+
+  case EXPR_PROC: break;
+
+  case EXPR_ACCESS: {
+    // TODO
+  } break;
+
+  case EXPR_PROC_CALL: {
+    symbol_t *sym = get_expr_sym(block, expr->proc_call.expr);
+    assert(sym);
+    assert(sym->kind == VALUE_PROC);
+
+    unsigned arg_count = (unsigned)expr->proc_call.params.count;
+    LLVMValueRef *args =
+        bump_alloc(&llvm->ctx->alloc, sizeof(LLVMValueRef) * arg_count);
+
+    for (size_t i = 0; i < arg_count; i++) {
+      value_t v;
+      codegen_expr(llvm, mod, block, &expr->proc_call.params.buf[0], &v);
+      args[i] = v.value;
+    }
+
+    val->kind = VALUE_TMP_VAR;
+    val->value =
+        LLVMBuildCall(mod->builder, sym->value.value, args, arg_count, "");
+  } break;
+
+  case EXPR_UNARY: {
+    // TODO
+  } break;
+
+  case EXPR_BINARY: {
+    // TODO
+  } break;
+
+  case EXPR_BLOCK: break;
+
+  case EXPR_STRUCT:
+  case EXPR_IMPORT:
+  case EXPR_PROC_PTR: {
+    // This isn't a runtime expression
+    assert(0);
+  } break;
+  }
+}
 
 /*
  * Registers function prototypes and binds LLVM types to symbols
@@ -210,8 +370,7 @@ static void codegen_stmts(llvm_t *llvm, module_t *mod, block_t *block) {
         case TYPE_TYPE: break;
 
         default: {
-          // TODO: generate constant expressions
-
+          codegen_const_expr(llvm, mod, block, expr, &const_decl->sym->value);
         } break;
         }
       } break;
@@ -236,6 +395,16 @@ static void codegen_stmts(llvm_t *llvm, module_t *mod, block_t *block) {
             mod->builder,
             llvm_type(llvm, var_decl->type),
             bump_c_str(&llvm->ctx->alloc, var_decl->name));
+
+        if (var_decl->flags & VAR_DECL_HAS_EXPR) {
+          value_t value;
+          codegen_expr(llvm, mod, block, &var_decl->expr, &value);
+
+          if (value.value) {
+            LLVMBuildStore(
+                mod->builder, value.value, var_decl->sym->value.value);
+          }
+        }
       } break;
 
       default: assert(0);
@@ -279,6 +448,12 @@ error_set_t llvm_codegen(llvm_t *llvm, ast_t *ast) {
   codegen_block(llvm, &mod, &ast->block);
 
   printf("%s\n", LLVMPrintModuleToString(mod.mod));
+
+  char *error = NULL;
+  if (LLVMVerifyModule(mod.mod, LLVMAbortProcessAction, &error)) {
+    printf("Failed to verify module: %s\n", error);
+    exit(1);
+  }
 
   mod_destroy(&mod);
 

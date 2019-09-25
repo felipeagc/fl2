@@ -341,7 +341,6 @@ static bool parse_proc_call(parser_t *p, expr_t *expr) {
 
     while (peek(p)->type != TOKEN_RPAREN && !is_at_end(p)) {
       expr_t param;
-      memset(&param, 0, sizeof(param));
       if (!parse_expr(p, &param))
         res = false;
       else
@@ -372,7 +371,8 @@ static bool parse_access(parser_t *p, expr_t *expr) {
     *left        = *expr;
 
     expr_t *right = bump_alloc(&p->ctx->alloc, sizeof(expr_t));
-    right->pos    = peek(p)->pos;
+    memset(right, 0, sizeof(*right));
+    right->pos = peek(p)->pos;
     if (!parse_access(p, right)) res = false;
     right->pos.len = peek(p)->pos.offset - right->pos.offset;
 
@@ -452,6 +452,8 @@ static bool parse_decl_or_assign_or_stmt_expr(parser_t *p, stmt_t *stmt) {
     if (!consume(p, TOKEN_COLON)) res = false;
 
     expr_t type_expr;
+    memset(&type_expr, 0, sizeof(type_expr));
+
     bool got_type = false;
 
     token_t *tok = peek(p);
@@ -545,7 +547,6 @@ static bool parse_decl_or_assign_or_stmt_expr(parser_t *p, stmt_t *stmt) {
 
   } else {
     expr_t expr;
-    memset(&expr, 0, sizeof(expr));
     if (!parse_expr(p, &expr)) res = false;
 
     switch (peek(p)->type) {

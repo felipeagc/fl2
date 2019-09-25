@@ -39,9 +39,7 @@ main :: proc () {
 
   void_proc :: proc () {}
 
-  asdasdasd := void_proc();
-
-  aaaaaaaa := hello.puts;
+  fun_ptr := hello.puts;
 
   my_i32: i32;
 
@@ -50,7 +48,7 @@ main :: proc () {
 
   my_f32 = 123;
 
-  adghfdghg: i64;
+  my_i64: i64;
   e1: other.Entity;
   e2: Entity;
   e3: Entity;
@@ -68,8 +66,7 @@ main :: proc () {
     asdf := global;
   }
 
-  adghfdgh: proc* () -> i32 = derp;
-
+  other_fun_ptr: proc* () -> i32 = derp;
   my_proc: MyProcType = derp;
 
   derp();
