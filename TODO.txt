@@ -29,4 +29,3 @@ Analyzer
 	force return statements
 
 Codegen
-	add function parameter values

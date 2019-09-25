@@ -204,6 +204,8 @@ static void codegen_expr(
 
         case SYMBOL_DUMMY: assert(0);
         }
+      } else {
+        *val = sym->value;
       }
     } break;
     }
@@ -349,6 +351,17 @@ static void codegen_stmts(llvm_t *llvm, module_t *mod, block_t *block) {
 
         assert(const_decl->sym->value.kind == VALUE_PROC);
         LLVMValueRef fun = const_decl->sym->value.value;
+
+        for (size_t i = 0; i < proc->sig.params.count; i++) {
+          var_decl_t *param = &proc->sig.params.buf[i];
+
+          char *param_name        = bump_c_str(&llvm->ctx->alloc, param->name);
+          LLVMValueRef llvm_param = LLVMGetParam(fun, i);
+          LLVMSetValueName(llvm_param, param_name);
+
+          param->sym->value.kind  = VALUE_TMP_VAR;
+          param->sym->value.value = llvm_param;
+        }
 
         LLVMBasicBlockRef entry    = LLVMAppendBasicBlock(fun, "entry");
         LLVMBasicBlockRef prev_pos = LLVMGetInsertBlock(mod->builder);
