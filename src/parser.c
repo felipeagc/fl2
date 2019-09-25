@@ -195,15 +195,6 @@ static bool parse_proc(parser_t *p, expr_t *expr) {
     }
   }
 
-  if (expr->proc.sig.return_types.count == 0) {
-    expr_t void_expr;
-    memset(&void_expr, 0, sizeof(void_expr));
-    void_expr.kind              = EXPR_PRIMARY;
-    void_expr.primary.kind      = PRIMARY_PRIMITIVE_TYPE;
-    void_expr.primary.prim_type = PRIM_TYPE_VOID;
-    APPEND(expr->proc.sig.return_types, void_expr);
-  }
-
   if (peek(p)->type == TOKEN_LCURLY) {
     if (!consume(p, TOKEN_LCURLY)) res = false;
   } else {
@@ -587,6 +578,27 @@ static bool parse_stmt(parser_t *p, stmt_t *stmt) {
   stmt->pos = tok->pos;
 
   switch (tok->type) {
+  case TOKEN_RETURN: {
+    next(p);
+
+    stmt->kind = STMT_RETURN;
+
+    bool first = true;
+    while (peek(p)->type != TOKEN_SEMI) {
+      if (!first) {
+        if (!consume(p, TOKEN_COMMA)) res = false;
+      }
+
+      expr_t expr;
+      if (!parse_expr(p, &expr))
+        res = false;
+      else
+        APPEND(stmt->ret.exprs, expr);
+      first = false;
+    }
+
+    if (!consume(p, TOKEN_SEMI)) res = false;
+  } break;
   case TOKEN_USING: {
     next(p);
 

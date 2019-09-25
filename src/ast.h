@@ -220,6 +220,10 @@ typedef struct const_decl_t {
   symbol_t *sym;
 } const_decl_t;
 
+typedef struct return_t {
+  expr_slice_t exprs;
+} return_t;
+
 typedef struct stmt_t {
   pos_t pos;
   enum {
@@ -229,6 +233,7 @@ typedef struct stmt_t {
     STMT_CONST_DECL,
     STMT_USING,
     STMT_EXPR,
+    STMT_RETURN,
   } kind;
   union {
     var_decl_t var_decl;
@@ -237,6 +242,7 @@ typedef struct stmt_t {
     struct {
       expr_t expr;
     };
+    return_t ret;
   };
 } stmt_t;
 

@@ -9,7 +9,6 @@ MyStructAlias :: (MyStruct);
 
 asd :: proc (c: i32) {
   d := 123;
-
 }
 
 MyProcType :: proc* () -> i32;
@@ -68,6 +67,8 @@ main :: proc () {
 
     aaaa := derp();
     asdf := global;
+
+    return 123;
   }
 
   other_fun_ptr: proc* () -> i32 = derp;

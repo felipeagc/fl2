@@ -34,6 +34,13 @@ static void mod_init(module_t *mod, const char *name) {
 
 static void mod_destroy(module_t *mod) { LLVMDisposeBuilder(mod->builder); }
 
+static inline LLVMValueRef load_val(module_t *mod, value_t *val) {
+  if (val->kind == VALUE_LOCAL_VAR || val->kind == VALUE_GLOBAL_VAR) {
+    return LLVMBuildLoad(mod->builder, val->value, "");
+  }
+  return val->value;
+}
+
 static LLVMTypeRef llvm_type(llvm_t *llvm, type_t *type) {
   if (type->ref) return type->ref;
 
@@ -71,8 +78,14 @@ static LLVMTypeRef llvm_type(llvm_t *llvm, type_t *type) {
       param_types[i] = llvm_type(llvm, type->proc_sig->params.buf[0].type);
     }
 
-    LLVMTypeRef return_type =
-        llvm_type(llvm, type->proc_sig->return_types.buf[0].as_type);
+    LLVMTypeRef return_type = NULL;
+
+    if (type->proc_sig->return_types.count > 0) {
+      return_type =
+          llvm_type(llvm, type->proc_sig->return_types.buf[0].as_type);
+    } else {
+      return_type = LLVMVoidType();
+    }
 
     type->ref = LLVMPointerType(
         LLVMFunctionType(return_type, param_types, param_count, false), 0);
@@ -291,8 +304,13 @@ static void pre_pass(llvm_t *llvm, module_t *mod, block_t *block) {
             param_types[i] = llvm_type(llvm, proc->sig.params.buf[i].type);
           }
 
-          LLVMTypeRef return_type =
-              llvm_type(llvm, proc->sig.return_types.buf[0].as_type);
+          LLVMTypeRef return_type = NULL;
+          if (proc->sig.return_types.count > 0) {
+            return_type =
+                llvm_type(llvm, proc->sig.return_types.buf[0].as_type);
+          } else {
+            return_type = LLVMVoidType();
+          }
 
           LLVMTypeRef fun_type = LLVMFunctionType(
               return_type, param_types, proc->sig.params.count, false);
@@ -371,6 +389,13 @@ static void codegen_stmts(llvm_t *llvm, module_t *mod, block_t *block) {
         LLVMPositionBuilderAtEnd(mod->builder, entry);
         pre_pass(llvm, mod, &expr->proc.block);
         codegen_stmts(llvm, mod, &expr->proc.block);
+
+        if (proc->sig.return_types.count == 0) {
+          if (!LLVMGetBasicBlockTerminator(LLVMGetInsertBlock(mod->builder))) {
+            LLVMBuildRetVoid(mod->builder); // Add void return
+          }
+        }
+
         LLVMPositionBuilderAtEnd(mod->builder, prev_pos);
       } break;
 
@@ -419,7 +444,9 @@ static void codegen_stmts(llvm_t *llvm, module_t *mod, block_t *block) {
 
           if (value.value) {
             LLVMBuildStore(
-                mod->builder, value.value, var_decl->sym->value.value);
+                mod->builder,
+                load_val(mod, &value),
+                var_decl->sym->value.value);
           }
         } else {
           // Zero initialization
@@ -448,6 +475,17 @@ static void codegen_stmts(llvm_t *llvm, module_t *mod, block_t *block) {
 
     case STMT_EXPR: {
 
+    } break;
+
+    case STMT_RETURN: {
+      if (stmt->ret.exprs.count > 0) {
+        value_t value;
+        codegen_expr(llvm, mod, block, &stmt->ret.exprs.buf[0], &value);
+
+        LLVMBuildRet(mod->builder, load_val(mod, &value));
+      } else {
+        LLVMBuildRetVoid(mod->builder);
+      }
     } break;
 
     case STMT_USING: {

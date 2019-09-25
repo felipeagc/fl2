@@ -501,6 +501,11 @@ static void type_check_expr(
     if (return_types.count >= 1) {
       expr_as_type(a, operand_block, &return_types.buf[0]);
       expr->type = return_types.buf[0].as_type;
+    } else {
+      static type_t void_type;
+      void_type.kind = TYPE_PRIMITIVE;
+      void_type.prim = PRIM_TYPE_VOID;
+      expr->type     = &void_type;
     }
 
     if (proc_sig->params.count == expr->proc_call.params.count) {
@@ -740,6 +745,26 @@ static void symbol_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
     symbol_check_expr(a, block, NULL, &stmt->expr);
   } break;
 
+  case STMT_RETURN: {
+    proc_t *proc = scope_proc(&block->scope);
+    if (!proc) {
+      error(a, stmt->pos, "return statement can only go inside procedures");
+      break;
+    }
+
+    if (proc->sig.return_types.count != stmt->ret.exprs.count) {
+      error(
+          a,
+          stmt->pos,
+          "return statement must return %zu value(s), instead got %zu",
+          proc->sig.return_types.count,
+          stmt->ret.exprs.count);
+      break;
+    }
+
+    For(expr, stmt->ret.exprs) { symbol_check_expr(a, block, NULL, expr); }
+  } break;
+
   case STMT_USING: {
     symbol_t *sym      = symbol_check_expr(a, block, NULL, &stmt->expr);
     expr_t *using_expr = inner_expr(&stmt->expr);
@@ -886,6 +911,19 @@ static void type_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
 
   case STMT_EXPR: {
     type_check_expr(a, block, NULL, &stmt->expr, NULL);
+  } break;
+
+  case STMT_RETURN: {
+    proc_t *proc = scope_proc(&block->scope);
+    if (proc) {
+      if (proc->sig.return_types.count == stmt->ret.exprs.count) {
+        for (size_t i = 0; i < proc->sig.return_types.count; i++) {
+          expr_t *expr     = &stmt->ret.exprs.buf[i];
+          expr_t *ret_type = &proc->sig.return_types.buf[i];
+          type_check_expr(a, block, NULL, expr, ret_type->as_type);
+        }
+      }
+    }
   } break;
 
   case STMT_USING: {
