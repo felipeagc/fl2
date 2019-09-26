@@ -48,7 +48,8 @@ static bool expr_as_type(analyzer_t *a, block_t *block, expr_t *expr) {
     switch (expr->primary.kind) {
     case PRIMARY_INT:
     case PRIMARY_FLOAT:
-    case PRIMARY_STRING: break;
+    case PRIMARY_STRING:
+    case PRIMARY_CSTRING: break;
 
     case PRIMARY_PRIMITIVE_TYPE: {
       type_t *ty = bump_alloc(&a->ctx->alloc, sizeof(type_t));
@@ -180,7 +181,8 @@ static symbol_t *symbol_check_expr(
     case PRIMARY_INT:
     case PRIMARY_FLOAT:
     case PRIMARY_PRIMITIVE_TYPE:
-    case PRIMARY_STRING: break;
+    case PRIMARY_STRING:
+    case PRIMARY_CSTRING: break;
 
     case PRIMARY_IDENT: {
       symbol_t *sym = scope_get(&operand_block->scope, expr->primary.string);
@@ -428,6 +430,18 @@ static void type_check_expr(
       expr->type = ty;
 
       ty->kind = TYPE_STRING;
+    } break;
+
+    case PRIMARY_CSTRING: {
+      type_t *ty = bump_alloc(&a->ctx->alloc, sizeof(type_t));
+      memset(ty, 0, sizeof(*ty));
+      expr->type = ty;
+
+      ty->kind    = TYPE_PTR;
+      ty->subtype = bump_alloc(&a->ctx->alloc, sizeof(type_t));
+      memset(ty->subtype, 0, sizeof(*ty->subtype));
+      ty->subtype->kind = TYPE_PRIMITIVE;
+      ty->subtype->prim = PRIM_TYPE_U8;
     } break;
 
     case PRIMARY_PRIMITIVE_TYPE: {

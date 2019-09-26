@@ -24,13 +24,19 @@ BigConstant :: 123123123;
 
 fun_alias :: asd;
 
+ConstString :: c"Hello";
+
 caller :: proc (callback: proc* (i32) -> i32) -> i32 {
 	return callback(123);
 }
 
 main :: proc () {
+	str2 := ConstString;
+
   hello :: (import "other.fl");
   using (hello);
+
+	str := c"asd";
 
   bignum := BigConstant;
 

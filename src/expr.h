@@ -18,7 +18,8 @@ static symbol_t *get_expr_sym(scope_t *scope, expr_t *expr) {
     case PRIMARY_INT:
     case PRIMARY_FLOAT:
     case PRIMARY_PRIMITIVE_TYPE:
-    case PRIMARY_STRING: break;
+    case PRIMARY_STRING: 
+    case PRIMARY_CSTRING: break;
 
     case PRIMARY_IDENT: {
       symbol_t *sym = scope_get(scope, expr->primary.string);

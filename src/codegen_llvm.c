@@ -70,7 +70,10 @@ static LLVMTypeRef llvm_type(llvm_t *llvm, type_t *type) {
     }
   } break;
 
-  case TYPE_PTR: assert(0);
+  case TYPE_PTR: {
+    return LLVMPointerType(llvm_type(llvm, type->subtype), 0);
+  } break;
+
   case TYPE_SLICE: assert(0);
   case TYPE_ARRAY: assert(0);
   case TYPE_PROC: {
@@ -205,6 +208,29 @@ static void codegen_const_expr(
 
     case PRIMARY_STRING: break;
 
+    case PRIMARY_CSTRING: {
+      LLVMValueRef glob = LLVMAddGlobal(
+          mod->mod,
+          LLVMArrayType(LLVMInt8Type(), expr->primary.string.count),
+          "str");
+
+      // set as internal linkage and constant
+      LLVMSetLinkage(glob, LLVMInternalLinkage);
+      LLVMSetGlobalConstant(glob, true);
+
+      // Initialize with string:
+      LLVMSetInitializer(
+          glob,
+          LLVMConstString(
+              expr->primary.string.buf, expr->primary.string.count, true));
+
+      LLVMValueRef zero       = LLVMConstInt(LLVMInt32Type(), 0, false);
+      LLVMValueRef indices[2] = {zero, zero};
+
+      val->kind  = VALUE_CONST;
+      val->value = LLVMConstGEP(glob, indices, 2);
+    } break;
+
     case PRIMARY_PRIMITIVE_TYPE: {
       // Not a runtime expression
       assert(0);
@@ -282,6 +308,7 @@ static void codegen_expr(
     case PRIMARY_INT:
     case PRIMARY_FLOAT:
     case PRIMARY_STRING:
+    case PRIMARY_CSTRING:
       return codegen_const_expr(llvm, mod, operand_block, NULL, expr, val);
 
     case PRIMARY_PRIMITIVE_TYPE: {

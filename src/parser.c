@@ -254,6 +254,13 @@ static bool parse_primary(parser_t *p, primary_expr_t *primary) {
     primary->string = tok->string;
   } break;
 
+  case TOKEN_CSTRING: {
+    next(p);
+
+    primary->kind   = PRIMARY_CSTRING;
+    primary->string = tok->string;
+  } break;
+
   case TOKEN_I8:
   case TOKEN_I16:
   case TOKEN_I32:

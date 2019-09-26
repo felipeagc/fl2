@@ -9,6 +9,7 @@ typedef enum {
   TOKEN_INT,
   TOKEN_FLOAT,
   TOKEN_STRING,
+  TOKEN_CSTRING,
   TOKEN_IDENT,
 
   TOKEN_LPAREN, // (

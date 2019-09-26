@@ -6,6 +6,7 @@ char *TOKEN_STRINGS[] = {
     [TOKEN_INT]    = "integer",
     [TOKEN_FLOAT]  = "float",
     [TOKEN_STRING] = "\"string\"",
+    [TOKEN_CSTRING] = "c\"string\"",
     [TOKEN_IDENT]  = "identifier",
 
     [TOKEN_LPAREN] = "(",

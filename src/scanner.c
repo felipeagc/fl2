@@ -42,6 +42,13 @@ static inline char peek(scanner_t *s) {
   return s->file->content.buf[s->offset];
 }
 
+static inline char peek_next(scanner_t *s) {
+  if ((s->offset + 1) >= s->file->content.count ||
+      s->file->content.buf[s->offset + 1] == '\0')
+    return '\0';
+  return s->file->content.buf[s->offset + 1];
+}
+
 static inline bool is_letter(char c) {
   return ('z' >= c && c >= 'a') || ('Z' >= c && c >= 'A');
 }
@@ -207,18 +214,21 @@ static void scan_identifier(scanner_t *s) {
   APPEND(s->tokens, token);
 }
 
-static void scan_string(scanner_t *s) {
+static void scan_string(scanner_t *s, bool c_string) {
   sb_reset(&s->ctx->sb);
 
   token_t token = {
-      .type = TOKEN_STRING,
-      .pos  = (pos_t){.file   = s->file,
+      .pos = (pos_t){.file   = s->file,
                      .offset = s->offset,
                      .line   = s->line,
                      .col    = s->col},
   };
 
-  next(s);
+  token.type = c_string ? TOKEN_CSTRING : TOKEN_STRING;
+
+  if (c_string) next(s); // skip c
+
+  next(s); // Skip quote
 
   while (!is_at_end(s)) {
     if (peek(s) == '\\') {
@@ -238,6 +248,8 @@ static void scan_string(scanner_t *s) {
 
     sb_append_char(&s->ctx->sb, next(s));
   }
+
+  if (c_string) sb_append_char(&s->ctx->sb, '\0');
 
   next(s);
 
@@ -438,11 +450,15 @@ static void scan_token(scanner_t *s) {
   } break;
 
   case '"': {
-    scan_string(s);
+    scan_string(s, false);
   } break;
 
   default: {
     if (is_letter(ch)) {
+      if (ch == 'c' && peek_next(s) == '\"') {
+        scan_string(s, true);
+        break;
+      }
       scan_identifier(s);
       break;
     }

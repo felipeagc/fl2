@@ -91,6 +91,7 @@ typedef struct primary_expr_t {
     PRIMARY_IDENT,
     PRIMARY_PRIMITIVE_TYPE,
     PRIMARY_STRING,
+    PRIMARY_CSTRING,
   } kind;
 
   union {
