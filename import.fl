@@ -24,6 +24,10 @@ BigConstant :: 123123123;
 
 fun_alias :: asd;
 
+caller :: proc (callback: proc* (i32) -> i32) -> i32 {
+	return callback(123);
+}
+
 main :: proc () {
   hello :: (import "other.fl");
   using (hello);
@@ -40,6 +44,8 @@ main :: proc () {
 
 	other_asd : proc* (i32) -> i32 = asd;
 	ret := other_asd(123);
+
+	value := caller(asd);
 
   a: i64 : 123;
   myint: MyInt = a;

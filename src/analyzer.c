@@ -127,12 +127,24 @@ static bool expr_as_type(analyzer_t *a, block_t *block, expr_t *expr) {
   } break;
 
   case EXPR_PROC_PTR: {
+    res = true;
+
+    For(param, expr->proc.sig.params) {
+      res |= expr_as_type(a, block, &param->type_expr);
+      param->type = param->type_expr.as_type;
+    }
+
+    For(return_type, expr->proc.sig.return_types) {
+      res |= expr_as_type(a, block, return_type);
+    }
+
+    if (!res) return res;
+
     type_t *ty = bump_alloc(&a->ctx->alloc, sizeof(type_t));
     memset(ty, 0, sizeof(*ty));
     expr->as_type = ty;
     ty->kind      = TYPE_PROC;
     ty->proc_sig  = &expr->proc.sig;
-    res           = true;
   } break;
 
   case EXPR_STRUCT: {
