@@ -1,0 +1,11 @@
+callback :: proc (a: i32) -> i32 {
+	return a;
+}
+
+caller :: proc (callback: proc* (i32) -> i32, param: i32) -> i32 {
+	return callback(param);
+}
+
+main :: proc () {
+	x := caller(callback, 123);
+}

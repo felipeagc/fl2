@@ -170,28 +170,33 @@ static bool parse_proc(parser_t *p, expr_t *expr) {
   if (peek(p)->type == TOKEN_ARROW) {
     next(p);
 
-    while (1) {
-      if (peek(p)->type == TOKEN_LCURLY || peek(p)->type == TOKEN_SEMI) {
-        break;
+    if (peek(p)->type == TOKEN_LPAREN) {
+      while (1) {
+        expr_t return_type_expr;
+        if (!parse_expr(p, &return_type_expr)) {
+          res = false;
+          next(p);
+          break;
+        }
+
+        if (res) APPEND(expr->proc.sig.return_types, return_type_expr);
+
+        if (peek(p)->type == TOKEN_COMMA) {
+          if (!consume(p, TOKEN_COMMA)) res = false;
+        } else {
+          break;
+        }
       }
 
+      if (!consume(p, TOKEN_RPAREN)) res = false;
+    } else {
       expr_t return_type_expr;
       if (!parse_expr(p, &return_type_expr)) {
         res = false;
         next(p);
-        /* SKIP_TO(TOKEN_LCURLY); */
-        break;
       }
 
-      if (res) {
-        APPEND(expr->proc.sig.return_types, return_type_expr);
-      }
-
-      if (peek(p)->type == TOKEN_COMMA) {
-        if (!consume(p, TOKEN_COMMA)) res = false;
-      } else {
-        break;
-      }
+      if (res) APPEND(expr->proc.sig.return_types, return_type_expr);
     }
   }
 

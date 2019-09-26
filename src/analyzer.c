@@ -260,8 +260,10 @@ static symbol_t *symbol_check_expr(
 
       case SYMBOL_GLOBAL_VAR:
       case SYMBOL_LOCAL_VAR: {
-        if (proc_sym->var_decl->type->kind == TYPE_PROC) {
-          proc_sig = proc_sym->var_decl->type->proc_sig;
+        if (proc_sym->var_decl->type) {
+          if (proc_sym->var_decl->type->kind == TYPE_PROC) {
+            proc_sig = proc_sym->var_decl->type->proc_sig;
+          }
         }
       } break;
 
@@ -514,8 +516,10 @@ static void type_check_expr(
 
       case SYMBOL_GLOBAL_VAR:
       case SYMBOL_LOCAL_VAR: {
-        if (proc_sym->var_decl->type->kind == TYPE_PROC) {
-          proc_sig = proc_sym->var_decl->type->proc_sig;
+        if (proc_sym->var_decl->type) {
+          if (proc_sym->var_decl->type->kind == TYPE_PROC) {
+            proc_sig = proc_sym->var_decl->type->proc_sig;
+          }
         }
       } break;
 

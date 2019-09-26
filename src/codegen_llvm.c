@@ -374,7 +374,7 @@ static void codegen_expr(
     for (size_t i = 0; i < arg_count; i++) {
       value_t v;
       codegen_expr(
-          llvm, mod, operand_block, NULL, &expr->proc_call.params.buf[0], &v);
+          llvm, mod, operand_block, NULL, &expr->proc_call.params.buf[i], &v);
       args[i] = v.value;
     }
 
