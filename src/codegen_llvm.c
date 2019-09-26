@@ -306,7 +306,8 @@ static void codegen_expr(
   case EXPR_PROC_CALL: {
     symbol_t *sym = get_expr_sym(block, expr->proc_call.expr);
     assert(sym);
-    assert(sym->kind == VALUE_PROC);
+    assert(sym->kind == SYMBOL_CONST_DECL);
+    assert(sym->value.kind == VALUE_PROC);
 
     unsigned arg_count = (unsigned)expr->proc_call.params.count;
     LLVMValueRef *args =
