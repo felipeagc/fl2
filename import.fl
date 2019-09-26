@@ -33,10 +33,13 @@ main :: proc () {
   global = bignum;
   global = 123;
 
-  bb : i64 = (hello.sum(1, 2));
+  bb: i64 = (hello.sum(1, 2));
   bb = 123;
 
   xyz := fun_alias(123);
+
+	other_asd : proc* (i32) -> i32 = asd;
+	ret := other_asd(123);
 
   a: i64 : 123;
   myint: MyInt = a;

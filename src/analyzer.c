@@ -87,7 +87,7 @@ static bool expr_as_type(analyzer_t *a, block_t *block, expr_t *expr) {
   } break;
 
   case EXPR_ACCESS: {
-    symbol_t *sym = get_expr_sym(block, expr->access.left);
+    symbol_t *sym = get_expr_sym(&block->scope, expr->access.left);
 
     if (sym) {
       switch (sym->kind) {
@@ -425,7 +425,7 @@ static void type_check_expr(
     } break;
 
     case PRIMARY_IDENT: {
-      symbol_t *sym = get_expr_sym(operand_block, expr);
+      symbol_t *sym = get_expr_sym(&operand_block->scope, expr);
       if (!sym) break;
 
       switch (sym->kind) {
@@ -452,7 +452,7 @@ static void type_check_expr(
   } break;
 
   case EXPR_ACCESS: {
-    symbol_t *sym = get_expr_sym(operand_block, expr->access.left);
+    symbol_t *sym = get_expr_sym(&operand_block->scope, expr->access.left);
     if (sym) {
       switch (sym->kind) {
       case SYMBOL_CONST_DECL: {
@@ -488,7 +488,8 @@ static void type_check_expr(
   } break;
 
   case EXPR_PROC_CALL: {
-    symbol_t *proc_sym = get_expr_sym(operation_block, expr->proc_call.expr);
+    symbol_t *proc_sym =
+        get_expr_sym(&operation_block->scope, expr->proc_call.expr);
     proc_signature_t *proc_sig = NULL;
 
     if (proc_sym) {

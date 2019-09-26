@@ -20,6 +20,9 @@
       (int)(str).count,                                                        \
       (str).buf)
 
+#define dbgf(fmt, ...)                                                         \
+  printf("%s:%s:%u :: " fmt "\n", __FILE__, __func__, __LINE__, __VA_ARGS__)
+
 typedef struct {
   LLVMModuleRef mod;
   LLVMBuilderRef builder;
@@ -330,7 +333,7 @@ static void codegen_expr(
   case EXPR_PROC: break;
 
   case EXPR_ACCESS: {
-    symbol_t *sym = get_expr_sym(operand_block, expr->access.left);
+    symbol_t *sym = get_expr_sym(&operand_block->scope, expr->access.left);
     assert(sym);
 
     switch (sym->kind) {
@@ -358,10 +361,11 @@ static void codegen_expr(
   } break;
 
   case EXPR_PROC_CALL: {
-    symbol_t *sym = get_expr_sym(operation_block, expr->proc_call.expr);
+    symbol_t *sym = get_expr_sym(&operation_block->scope, expr->proc_call.expr);
     assert(sym);
-    assert(sym->kind == SYMBOL_CONST_DECL);
-    assert(sym->value.kind == VALUE_PROC);
+
+    LLVMValueRef fun = load_val(mod, &sym->value);
+    assert(fun);
 
     unsigned arg_count = (unsigned)expr->proc_call.params.count;
     LLVMValueRef *args =
@@ -374,9 +378,8 @@ static void codegen_expr(
       args[i] = v.value;
     }
 
-    val->kind = VALUE_TMP_VAR;
-    val->value =
-        LLVMBuildCall(mod->builder, sym->value.value, args, arg_count, "");
+    val->kind  = VALUE_TMP_VAR;
+    val->value = LLVMBuildCall(mod->builder, fun, args, arg_count, "");
   } break;
 
   case EXPR_UNARY: {
@@ -595,7 +598,7 @@ static void codegen_stmts(llvm_t *llvm, module_t *mod, block_t *block) {
     case STMT_VAR_ASSIGN: {
       var_assign_t *var_assign = &stmt->var_assign;
 
-      symbol_t *sym = get_expr_sym(block, &var_assign->assigned);
+      symbol_t *sym = get_expr_sym(&block->scope, &var_assign->assigned);
       assert(sym);
       assert(sym->kind == SYMBOL_GLOBAL_VAR || sym->kind == SYMBOL_LOCAL_VAR);
 

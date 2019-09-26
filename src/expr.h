@@ -11,7 +11,7 @@ static expr_t *inner_expr(expr_t *expr) {
   }
 }
 
-static symbol_t *get_expr_sym(block_t *block, expr_t *expr) {
+static symbol_t *get_expr_sym(scope_t *scope, expr_t *expr) {
   switch (expr->kind) {
   case EXPR_PRIMARY: {
     switch (expr->primary.kind) {
@@ -21,7 +21,7 @@ static symbol_t *get_expr_sym(block_t *block, expr_t *expr) {
     case PRIMARY_STRING: break;
 
     case PRIMARY_IDENT: {
-      symbol_t *sym = scope_get(&block->scope, expr->primary.string);
+      symbol_t *sym = scope_get(scope, expr->primary.string);
       if (sym) return sym;
     } break;
     }
@@ -29,11 +29,11 @@ static symbol_t *get_expr_sym(block_t *block, expr_t *expr) {
   } break;
 
   case EXPR_EXPR: {
-    return get_expr_sym(block, expr->expr);
+    return get_expr_sym(scope, expr->expr);
   } break;
 
   case EXPR_ACCESS: {
-    symbol_t *sym = get_expr_sym(block, expr->access.left);
+    symbol_t *sym = get_expr_sym(scope, expr->access.left);
     if (sym) {
       switch (sym->kind) {
       case SYMBOL_CONST_DECL: {
@@ -41,7 +41,8 @@ static symbol_t *get_expr_sym(block_t *block, expr_t *expr) {
 
         switch (inner->kind) {
         case EXPR_IMPORT: {
-          return get_expr_sym(&inner->import.ast->block, expr->access.right);
+          return get_expr_sym(
+              &inner->import.ast->block.scope, expr->access.right);
         } break;
 
         default: break;
@@ -64,7 +65,7 @@ static symbol_t *get_expr_sym(block_t *block, expr_t *expr) {
   } break;
 
   case EXPR_PROC_CALL: {
-    return get_expr_sym(block, expr->proc_call.expr);
+    return get_expr_sym(scope, expr->proc_call.expr);
   } break;
 
   case EXPR_PROC: {
