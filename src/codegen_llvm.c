@@ -113,7 +113,14 @@ static LLVMTypeRef llvm_type(llvm_t *llvm, type_t *type) {
 }
 
 static void codegen_const_expr(
-    llvm_t *llvm, module_t *mod, block_t *block, expr_t *expr, value_t *val) {
+    llvm_t *llvm,
+    module_t *mod,
+    block_t *operand_block,
+    block_t *operation_block,
+    expr_t *expr,
+    value_t *val) {
+  if (operation_block == NULL) operation_block = operand_block;
+
   memset(val, 0, sizeof(*val));
 
   switch (expr->kind) {
@@ -201,21 +208,27 @@ static void codegen_const_expr(
     } break;
 
     case PRIMARY_IDENT: {
-      symbol_t *sym = scope_get(&block->scope, expr->primary.string);
+      symbol_t *sym = scope_get(&operand_block->scope, expr->primary.string);
       assert(sym);
 
       if (sym->value.kind == VALUE_UNDEFINED) {
         codegen_const_expr(
-            llvm, mod, block, &sym->const_decl->expr, &sym->value);
-        *val = sym->value;
+            llvm,
+            mod,
+            operand_block,
+            NULL,
+            &sym->const_decl->expr,
+            &sym->value);
       }
+
+      *val = sym->value;
     } break;
     }
 
   } break;
 
   case EXPR_EXPR: {
-    return codegen_const_expr(llvm, mod, block, expr->expr, val);
+    return codegen_const_expr(llvm, mod, operand_block, NULL, expr->expr, val);
   } break;
 
   case EXPR_PROC: break;
@@ -249,7 +262,14 @@ static void codegen_const_expr(
 }
 
 static void codegen_expr(
-    llvm_t *llvm, module_t *mod, block_t *block, expr_t *expr, value_t *val) {
+    llvm_t *llvm,
+    module_t *mod,
+    block_t *operand_block,
+    block_t *operation_block,
+    expr_t *expr,
+    value_t *val) {
+  if (operation_block == NULL) operation_block = operand_block;
+
   memset(val, 0, sizeof(*val));
 
   switch (expr->kind) {
@@ -258,7 +278,8 @@ static void codegen_expr(
     switch (expr->primary.kind) {
     case PRIMARY_INT:
     case PRIMARY_FLOAT:
-    case PRIMARY_STRING: return codegen_const_expr(llvm, mod, block, expr, val);
+    case PRIMARY_STRING:
+      return codegen_const_expr(llvm, mod, operand_block, NULL, expr, val);
 
     case PRIMARY_PRIMITIVE_TYPE: {
       // Not a runtime expression
@@ -266,45 +287,78 @@ static void codegen_expr(
     } break;
 
     case PRIMARY_IDENT: {
-      symbol_t *sym = scope_get(&block->scope, expr->primary.string);
+      symbol_t *sym = scope_get(&operand_block->scope, expr->primary.string);
       assert(sym);
 
       if (sym->value.kind == VALUE_UNDEFINED) {
         switch (sym->kind) {
         case SYMBOL_GLOBAL_VAR:
         case SYMBOL_LOCAL_VAR: {
-          codegen_expr(llvm, mod, block, &sym->const_decl->expr, &sym->value);
-          *val = sym->value;
+          codegen_expr(
+              llvm,
+              mod,
+              operand_block,
+              NULL,
+              &sym->const_decl->expr,
+              &sym->value);
         } break;
 
         case SYMBOL_CONST_DECL: {
           codegen_const_expr(
-              llvm, mod, block, &sym->const_decl->expr, &sym->value);
-          *val = sym->value;
+              llvm,
+              mod,
+              operand_block,
+              NULL,
+              &sym->const_decl->expr,
+              &sym->value);
         } break;
 
         case SYMBOL_DUMMY: assert(0);
         }
-      } else {
-        *val = sym->value;
       }
+
+      *val = sym->value;
     } break;
     }
 
   } break;
 
   case EXPR_EXPR: {
-    return codegen_expr(llvm, mod, block, expr->expr, val);
+    return codegen_expr(llvm, mod, operand_block, NULL, expr->expr, val);
   } break;
 
   case EXPR_PROC: break;
 
   case EXPR_ACCESS: {
-    // TODO
+    symbol_t *sym = get_expr_sym(operand_block, expr->access.left);
+    assert(sym);
+
+    switch (sym->kind) {
+    case SYMBOL_CONST_DECL: {
+      expr_t *decl_expr = inner_expr(&sym->const_decl->expr);
+
+      switch (decl_expr->kind) {
+      case EXPR_IMPORT: {
+        codegen_expr(
+            llvm,
+            mod,
+            operand_block,
+            &decl_expr->import.ast->block,
+            expr->access.right,
+            &sym->value);
+        *val = sym->value;
+      } break;
+
+      default: break;
+      }
+    } break;
+
+    default: break;
+    }
   } break;
 
   case EXPR_PROC_CALL: {
-    symbol_t *sym = get_expr_sym(block, expr->proc_call.expr);
+    symbol_t *sym = get_expr_sym(operation_block, expr->proc_call.expr);
     assert(sym);
     assert(sym->kind == SYMBOL_CONST_DECL);
     assert(sym->value.kind == VALUE_PROC);
@@ -315,7 +369,8 @@ static void codegen_expr(
 
     for (size_t i = 0; i < arg_count; i++) {
       value_t v;
-      codegen_expr(llvm, mod, block, &expr->proc_call.params.buf[0], &v);
+      codegen_expr(
+          llvm, mod, operand_block, NULL, &expr->proc_call.params.buf[0], &v);
       args[i] = v.value;
     }
 
@@ -480,7 +535,8 @@ static void codegen_stmts(llvm_t *llvm, module_t *mod, block_t *block) {
         case TYPE_TYPE: break;
 
         default: {
-          codegen_const_expr(llvm, mod, block, expr, &const_decl->sym->value);
+          codegen_const_expr(
+              llvm, mod, block, NULL, expr, &const_decl->sym->value);
         } break;
         }
       } break;
@@ -510,14 +566,11 @@ static void codegen_stmts(llvm_t *llvm, module_t *mod, block_t *block) {
 
         if (var_decl->flags & VAR_DECL_HAS_EXPR) {
           value_t value;
-          codegen_expr(llvm, mod, block, &var_decl->expr, &value);
+          codegen_expr(llvm, mod, block, NULL, &var_decl->expr, &value);
+          assert(value.value);
 
-          if (value.value) {
-            LLVMBuildStore(
-                mod->builder,
-                load_val(mod, &value),
-                var_decl->sym->value.value);
-          }
+          LLVMBuildStore(
+              mod->builder, load_val(mod, &value), var_decl->sym->value.value);
         } else {
           // Zero initialization
           static LLVMValueRef zero_val = NULL;
@@ -540,7 +593,17 @@ static void codegen_stmts(llvm_t *llvm, module_t *mod, block_t *block) {
     } break;
 
     case STMT_VAR_ASSIGN: {
+      var_assign_t *var_assign = &stmt->var_assign;
 
+      symbol_t *sym = get_expr_sym(block, &var_assign->assigned);
+      assert(sym);
+      assert(sym->kind == SYMBOL_GLOBAL_VAR || sym->kind == SYMBOL_LOCAL_VAR);
+
+      value_t value;
+      codegen_expr(llvm, mod, block, NULL, &var_assign->expr, &value);
+      assert(value.value);
+
+      LLVMBuildStore(mod->builder, load_val(mod, &value), sym->value.value);
     } break;
 
     case STMT_EXPR: {
@@ -550,7 +613,7 @@ static void codegen_stmts(llvm_t *llvm, module_t *mod, block_t *block) {
     case STMT_RETURN: {
       if (stmt->ret.exprs.count > 0) {
         value_t value;
-        codegen_expr(llvm, mod, block, &stmt->ret.exprs.buf[0], &value);
+        codegen_expr(llvm, mod, block, NULL, &stmt->ret.exprs.buf[0], &value);
 
         LLVMBuildRet(mod->builder, load_val(mod, &value));
       } else {

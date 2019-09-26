@@ -7,8 +7,10 @@ MyStruct :: struct {
 
 MyStructAlias :: (MyStruct);
 
-asd :: proc (c: i32) {
+asd :: proc (c: i32) -> i32 {
   d := 123;
+
+  return c;
 }
 
 MyProcType :: proc* () -> i32;
@@ -20,14 +22,21 @@ MyInt32 :: i32;
 
 BigConstant :: 123123123;
 
+fun_alias :: asd;
+
 main :: proc () {
   hello :: (import "other.fl");
   using (hello);
 
   bignum := BigConstant;
 
+  global = bignum;
+  global = 123;
+
   bb : i64 = (hello.sum(1, 2));
   bb = 123;
+
+  xyz := fun_alias(123);
 
   a: i64 : 123;
   myint: MyInt = a;
@@ -43,6 +52,8 @@ main :: proc () {
   void_proc :: proc () {}
 
   fun_ptr := hello.puts;
+
+  fun_ptr();
 
   my_i32: i32;
 

@@ -245,6 +245,14 @@ static symbol_t *symbol_check_expr(
           proc_sig = proc_sym->const_decl->type->proc_sig;
         }
       } break;
+
+      case SYMBOL_GLOBAL_VAR:
+      case SYMBOL_LOCAL_VAR: {
+        if (proc_sym->var_decl->type->kind == TYPE_PROC) {
+          proc_sig = proc_sym->var_decl->type->proc_sig;
+        }
+      } break;
+
       default: break;
       }
     }
@@ -490,6 +498,14 @@ static void type_check_expr(
           proc_sig = proc_sym->const_decl->type->proc_sig;
         }
       } break;
+
+      case SYMBOL_GLOBAL_VAR:
+      case SYMBOL_LOCAL_VAR: {
+        if (proc_sym->var_decl->type->kind == TYPE_PROC) {
+          proc_sig = proc_sym->var_decl->type->proc_sig;
+        }
+      } break;
+
       default: break;
       }
     }
