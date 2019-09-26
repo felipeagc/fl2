@@ -384,6 +384,12 @@ static void scan_token(scanner_t *s) {
   } break;
   case '/': {
     next(s);
+    if (peek(s) == '/') {
+      // Comment
+      while (!is_newline(next(s))) {}
+      break;
+    }
+
     token.type = TOKEN_DIV;
     APPEND(s->tokens, token);
   } break;

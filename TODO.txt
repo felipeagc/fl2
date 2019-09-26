@@ -1,5 +1,4 @@
 Scanner
-- Scan comments
 
 Parser
 - Unary exprs
