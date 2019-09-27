@@ -44,6 +44,7 @@ typedef struct proc_signature_t {
 typedef struct proc_t {
   proc_signature_t sig;
   block_t block;
+  strbuf_t name;
 } proc_t;
 
 typedef enum struct_flags_t {
@@ -52,7 +53,6 @@ typedef enum struct_flags_t {
 
 typedef struct struct_t {
   struct_flags_t flags;
-
 } struct_t;
 
 typedef struct proc_call_t {

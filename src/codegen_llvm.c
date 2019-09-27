@@ -118,6 +118,9 @@ static LLVMTypeRef llvm_type(llvm_t *llvm, type_t *type) {
   return type->ref;
 }
 
+static void pre_pass(llvm_t *llvm, module_t *mod, block_t *block);
+static void codegen_stmts(llvm_t *llvm, module_t *mod, block_t *block);
+
 static void codegen_const_expr(
     llvm_t *llvm,
     module_t *mod,
@@ -126,8 +129,6 @@ static void codegen_const_expr(
     expr_t *expr,
     value_t *val) {
   if (operation_block == NULL) operation_block = operand_block;
-
-  memset(val, 0, sizeof(*val));
 
   switch (expr->kind) {
   case EXPR_PRIMARY: {
@@ -233,7 +234,6 @@ static void codegen_const_expr(
 
     case PRIMARY_PRIMITIVE_TYPE: {
       // Not a runtime expression
-      assert(0);
     } break;
 
     case PRIMARY_IDENT: {
@@ -260,7 +260,69 @@ static void codegen_const_expr(
     return codegen_const_expr(llvm, mod, operand_block, NULL, expr->expr, val);
   } break;
 
-  case EXPR_PROC: break;
+  case EXPR_PROC: {
+    proc_t *proc = &expr->proc;
+    if (proc->sig.flags & PROC_FLAG_NO_BODY) break;
+
+    if (val->kind == VALUE_UNDEFINED) {
+      char *fun_name = "nested_proc";
+
+      LLVMTypeRef *param_types = bump_alloc(
+          &llvm->ctx->alloc, sizeof(LLVMTypeRef) * proc->sig.params.count);
+      for (size_t i = 0; i < proc->sig.params.count; i++) {
+        param_types[i] = llvm_type(llvm, proc->sig.params.buf[i].type);
+      }
+
+      LLVMTypeRef return_type = NULL;
+      if (proc->sig.return_types.count > 0) {
+        return_type = llvm_type(llvm, proc->sig.return_types.buf[0].as_type);
+      } else {
+        return_type = LLVMVoidType();
+      }
+
+      LLVMTypeRef fun_type = LLVMFunctionType(
+          return_type, param_types, proc->sig.params.count, false);
+
+      val->kind  = VALUE_PROC;
+      val->value = LLVMAddFunction(mod->mod, fun_name, fun_type);
+
+      if (proc->sig.flags & PROC_FLAG_EXTERN) {
+        LLVMSetLinkage(val->value, LLVMExternalLinkage);
+      }
+    }
+
+    assert(val->kind == VALUE_PROC);
+    LLVMValueRef fun = val->value;
+
+    for (size_t i = 0; i < proc->sig.params.count; i++) {
+      var_decl_t *param = &proc->sig.params.buf[i];
+
+      char *param_name        = bump_c_str(&llvm->ctx->alloc, param->name);
+      LLVMValueRef llvm_param = LLVMGetParam(fun, i);
+      LLVMSetValueName(llvm_param, param_name);
+
+      if (param->sym) {
+        // Parameter could be unnamed and thus have no symbol
+        param->sym->value.kind  = VALUE_TMP_VAR;
+        param->sym->value.value = llvm_param;
+      }
+    }
+
+    LLVMBasicBlockRef entry    = LLVMAppendBasicBlock(fun, "entry");
+    LLVMBasicBlockRef prev_pos = LLVMGetInsertBlock(mod->builder);
+
+    LLVMPositionBuilderAtEnd(mod->builder, entry);
+    pre_pass(llvm, mod, &expr->proc.block);
+    codegen_stmts(llvm, mod, &expr->proc.block);
+
+    if (proc->sig.return_types.count == 0) {
+      if (!LLVMGetBasicBlockTerminator(LLVMGetInsertBlock(mod->builder))) {
+        LLVMBuildRetVoid(mod->builder); // Add void return
+      }
+    }
+
+    LLVMPositionBuilderAtEnd(mod->builder, prev_pos);
+  } break;
 
   case EXPR_ACCESS: {
     // TODO
@@ -281,11 +343,13 @@ static void codegen_const_expr(
 
   case EXPR_BLOCK: break;
 
+  case EXPR_IMPORT: {
+    codegen_stmts(llvm, mod, &expr->import.ast->block);
+  } break;
+
   case EXPR_STRUCT:
-  case EXPR_IMPORT:
   case EXPR_PROC_PTR: {
     // This isn't a runtime expression
-    assert(0);
   } break;
   }
 }
@@ -299,8 +363,6 @@ static void codegen_expr(
     value_t *val) {
   if (operation_block == NULL) operation_block = operand_block;
 
-  memset(val, 0, sizeof(*val));
-
   switch (expr->kind) {
   case EXPR_PRIMARY: {
 
@@ -309,12 +371,8 @@ static void codegen_expr(
     case PRIMARY_FLOAT:
     case PRIMARY_STRING:
     case PRIMARY_CSTRING:
+    case PRIMARY_PRIMITIVE_TYPE:
       return codegen_const_expr(llvm, mod, operand_block, NULL, expr, val);
-
-    case PRIMARY_PRIMITIVE_TYPE: {
-      // Not a runtime expression
-      assert(0);
-    } break;
 
     case PRIMARY_IDENT: {
       symbol_t *sym = scope_get(&operand_block->scope, expr->primary.string);
@@ -353,11 +411,11 @@ static void codegen_expr(
 
   } break;
 
-  case EXPR_EXPR: {
+  case EXPR_EXPR:
     return codegen_expr(llvm, mod, operand_block, NULL, expr->expr, val);
-  } break;
 
-  case EXPR_PROC: break;
+  case EXPR_PROC:
+    return codegen_const_expr(llvm, mod, operand_block, NULL, expr, val);
 
   case EXPR_ACCESS: {
     symbol_t *sym = get_expr_sym(&operand_block->scope, expr->access.left);
@@ -388,10 +446,14 @@ static void codegen_expr(
   } break;
 
   case EXPR_PROC_CALL: {
-    symbol_t *sym = get_expr_sym(&operation_block->scope, expr->proc_call.expr);
-    assert(sym);
+    value_t fun_val;
+    memset(&fun_val, 0, sizeof(fun_val));
 
-    LLVMValueRef fun = load_val(mod, &sym->value);
+    codegen_expr(
+        llvm, mod, operand_block, NULL, expr->proc_call.expr, &fun_val);
+    assert(fun_val.kind != VALUE_UNDEFINED);
+
+    LLVMValueRef fun = load_val(mod, &fun_val);
     assert(fun);
 
     unsigned arg_count = (unsigned)expr->proc_call.params.count;
@@ -400,9 +462,11 @@ static void codegen_expr(
 
     for (size_t i = 0; i < arg_count; i++) {
       value_t v;
+      memset(&v, 0, sizeof(v));
+
       codegen_expr(
           llvm, mod, operand_block, NULL, &expr->proc_call.params.buf[i], &v);
-      args[i] = v.value;
+      args[i] = load_val(mod, &v);
     }
 
     val->kind  = VALUE_TMP_VAR;
@@ -421,9 +485,64 @@ static void codegen_expr(
 
   case EXPR_STRUCT:
   case EXPR_IMPORT:
-  case EXPR_PROC_PTR: {
-    // This isn't a runtime expression
-    assert(0);
+  case EXPR_PROC_PTR:
+    return codegen_const_expr(llvm, mod, operand_block, NULL, expr, val);
+  }
+}
+
+static void
+pre_pass_expr(llvm_t *llvm, module_t *mod, expr_t *expr, value_t *val) {
+  switch (expr->kind) {
+  case EXPR_PROC: {
+    proc_t *proc = &expr->proc;
+
+    char *fun_name   = bump_c_str(&llvm->ctx->alloc, proc->name);
+    LLVMValueRef fun = NULL;
+
+    if (proc->sig.flags & PROC_FLAG_EXTERN) {
+      fun = LLVMGetNamedFunction(mod->mod, fun_name);
+    }
+
+    if (fun == NULL) {
+      LLVMTypeRef *param_types = bump_alloc(
+          &llvm->ctx->alloc, sizeof(LLVMTypeRef) * proc->sig.params.count);
+      for (size_t i = 0; i < proc->sig.params.count; i++) {
+        param_types[i] = llvm_type(llvm, proc->sig.params.buf[i].type);
+      }
+
+      LLVMTypeRef return_type = NULL;
+      if (proc->sig.return_types.count > 0) {
+        return_type = llvm_type(llvm, proc->sig.return_types.buf[0].as_type);
+      } else {
+        return_type = LLVMVoidType();
+      }
+
+      LLVMTypeRef fun_type = LLVMFunctionType(
+          return_type, param_types, proc->sig.params.count, false);
+      fun = LLVMAddFunction(mod->mod, fun_name, fun_type);
+
+      if (proc->sig.flags & PROC_FLAG_EXTERN) {
+        LLVMSetLinkage(fun, LLVMExternalLinkage);
+      }
+    }
+
+    assert(fun);
+
+    assert(val);
+    val->kind  = VALUE_PROC;
+    val->value = fun;
+  } break;
+
+  case EXPR_IMPORT: {
+    pre_pass(llvm, mod, &expr->import.ast->block);
+  } break;
+
+  default: {
+    if (expr->type->kind == TYPE_TYPE) {
+      assert(val);
+      val->kind = VALUE_TYPE;
+      val->type = llvm_type(llvm, expr->as_type);
+    }
   } break;
   }
 }
@@ -435,72 +554,15 @@ static void pre_pass(llvm_t *llvm, module_t *mod, block_t *block) {
   For(stmt, block->stmts) {
     switch (stmt->kind) {
     case STMT_CONST_DECL: {
-      const_decl_t *const_decl = &stmt->const_decl;
-      expr_t *expr             = inner_expr(&stmt->const_decl.expr);
-
-      switch (expr->kind) {
-      case EXPR_PROC: {
-        proc_t *proc = &expr->proc;
-
-        char *fun_name   = bump_c_str(&llvm->ctx->alloc, const_decl->name);
-        LLVMValueRef fun = NULL;
-
-        if (proc->sig.flags & PROC_FLAG_EXTERN) {
-          fun = LLVMGetNamedFunction(mod->mod, fun_name);
-        }
-
-        if (fun == NULL) {
-          LLVMTypeRef *param_types = bump_alloc(
-              &llvm->ctx->alloc, sizeof(LLVMTypeRef) * proc->sig.params.count);
-          for (size_t i = 0; i < proc->sig.params.count; i++) {
-            param_types[i] = llvm_type(llvm, proc->sig.params.buf[i].type);
-          }
-
-          LLVMTypeRef return_type = NULL;
-          if (proc->sig.return_types.count > 0) {
-            return_type =
-                llvm_type(llvm, proc->sig.return_types.buf[0].as_type);
-          } else {
-            return_type = LLVMVoidType();
-          }
-
-          LLVMTypeRef fun_type = LLVMFunctionType(
-              return_type, param_types, proc->sig.params.count, false);
-          fun = LLVMAddFunction(mod->mod, fun_name, fun_type);
-
-          if (proc->sig.flags & PROC_FLAG_EXTERN) {
-            LLVMSetLinkage(fun, LLVMExternalLinkage);
-          }
-        }
-
-        assert(fun);
-
-        const_decl->sym->value.kind  = VALUE_PROC;
-        const_decl->sym->value.value = fun;
-      } break;
-
-      case EXPR_IMPORT: {
-        pre_pass(llvm, mod, &expr->import.ast->block);
-      } break;
-
-      default: {
-        if (expr->type->kind == TYPE_TYPE) {
-          stmt->const_decl.sym->value.kind = VALUE_TYPE;
-          stmt->const_decl.sym->value.type = llvm_type(llvm, expr->as_type);
-        }
-      } break;
-      }
+      pre_pass_expr(
+          llvm,
+          mod,
+          inner_expr(&stmt->const_decl.expr),
+          &stmt->const_decl.sym->value);
     } break;
 
     case STMT_USING: {
-      expr_t *expr = inner_expr(&stmt->expr);
-
-      switch (expr->kind) {
-      case EXPR_IMPORT: {
-        pre_pass(llvm, mod, &expr->import.ast->block);
-      } break;
-      default: break;
-      }
+      pre_pass_expr(llvm, mod, inner_expr(&stmt->expr), NULL);
     } break;
 
     default: break;
@@ -512,65 +574,9 @@ static void codegen_stmts(llvm_t *llvm, module_t *mod, block_t *block) {
   For(stmt, block->stmts) {
     switch (stmt->kind) {
     case STMT_CONST_DECL: {
-      const_decl_t *const_decl = &stmt->const_decl;
-
-      expr_t *expr = inner_expr(&const_decl->expr);
-
-      switch (expr->kind) {
-      case EXPR_PROC: {
-        proc_t *proc = &expr->proc;
-        if (proc->sig.flags & PROC_FLAG_NO_BODY) break;
-
-        assert(const_decl->sym->value.kind == VALUE_PROC);
-        LLVMValueRef fun = const_decl->sym->value.value;
-
-        for (size_t i = 0; i < proc->sig.params.count; i++) {
-          var_decl_t *param = &proc->sig.params.buf[i];
-
-          char *param_name        = bump_c_str(&llvm->ctx->alloc, param->name);
-          LLVMValueRef llvm_param = LLVMGetParam(fun, i);
-          LLVMSetValueName(llvm_param, param_name);
-
-          if (param->sym) {
-            // Parameter could be unnamed and thus have no symbol
-            param->sym->value.kind  = VALUE_TMP_VAR;
-            param->sym->value.value = llvm_param;
-          }
-        }
-
-        LLVMBasicBlockRef entry    = LLVMAppendBasicBlock(fun, "entry");
-        LLVMBasicBlockRef prev_pos = LLVMGetInsertBlock(mod->builder);
-
-        LLVMPositionBuilderAtEnd(mod->builder, entry);
-        pre_pass(llvm, mod, &expr->proc.block);
-        codegen_stmts(llvm, mod, &expr->proc.block);
-
-        if (proc->sig.return_types.count == 0) {
-          if (!LLVMGetBasicBlockTerminator(LLVMGetInsertBlock(mod->builder))) {
-            LLVMBuildRetVoid(mod->builder); // Add void return
-          }
-        }
-
-        LLVMPositionBuilderAtEnd(mod->builder, prev_pos);
-      } break;
-
-      case EXPR_IMPORT: {
-        codegen_stmts(llvm, mod, &expr->import.ast->block);
-      } break;
-
-      default: {
-        switch (expr->type->kind) {
-        case TYPE_NAMESPACE:
-        case TYPE_UNDEFINED:
-        case TYPE_TYPE: break;
-
-        default: {
-          codegen_const_expr(
-              llvm, mod, block, NULL, expr, &const_decl->sym->value);
-        } break;
-        }
-      } break;
-      }
+      expr_t *expr = inner_expr(&stmt->const_decl.expr);
+      codegen_const_expr(
+          llvm, mod, block, NULL, expr, &stmt->const_decl.sym->value);
     } break;
 
     case STMT_VAR_DECL: {
@@ -596,6 +602,8 @@ static void codegen_stmts(llvm_t *llvm, module_t *mod, block_t *block) {
 
         if (var_decl->flags & VAR_DECL_HAS_EXPR) {
           value_t value;
+          memset(&value, 0, sizeof(value));
+
           codegen_expr(llvm, mod, block, NULL, &var_decl->expr, &value);
           assert(value.value);
 
@@ -630,6 +638,8 @@ static void codegen_stmts(llvm_t *llvm, module_t *mod, block_t *block) {
       assert(sym->kind == SYMBOL_GLOBAL_VAR || sym->kind == SYMBOL_LOCAL_VAR);
 
       value_t value;
+      memset(&value, 0, sizeof(value));
+
       codegen_expr(llvm, mod, block, NULL, &var_assign->expr, &value);
       assert(value.value);
 
@@ -643,6 +653,8 @@ static void codegen_stmts(llvm_t *llvm, module_t *mod, block_t *block) {
     case STMT_RETURN: {
       if (stmt->ret.exprs.count > 0) {
         value_t value;
+        memset(&value, 0, sizeof(value));
+
         codegen_expr(llvm, mod, block, NULL, &stmt->ret.exprs.buf[0], &value);
 
         LLVMBuildRet(mod->builder, load_val(mod, &value));

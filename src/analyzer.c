@@ -252,6 +252,11 @@ static symbol_t *symbol_check_expr(
         symbol_check_expr(a, operation_block, NULL, expr->proc_call.expr);
     proc_signature_t *proc_sig = NULL;
 
+    if (!proc_sym) {
+      expr_t *inner = inner_expr(expr->proc_call.expr);
+      if (inner->kind == EXPR_PROC) proc_sig = &inner->proc.sig;
+    }
+
     if (proc_sym) {
       switch (proc_sym->kind) {
       case SYMBOL_CONST_DECL: {
@@ -359,7 +364,6 @@ static symbol_t *symbol_check_expr(
         error(a, expr->pos, "extern procedure has to be top level");
       }
     }
-
   } break;
 
   case EXPR_STRUCT: {
@@ -516,9 +520,16 @@ static void type_check_expr(
   } break;
 
   case EXPR_PROC_CALL: {
+    type_check_expr(a, operand_block, NULL, expr->proc_call.expr, NULL);
+
     symbol_t *proc_sym =
         get_expr_sym(&operation_block->scope, expr->proc_call.expr);
     proc_signature_t *proc_sig = NULL;
+
+    if (!proc_sym) {
+      expr_t *inner = inner_expr(expr->proc_call.expr);
+      if (inner->kind == EXPR_PROC) proc_sig = &inner->proc.sig;
+    }
 
     if (proc_sym) {
       switch (proc_sym->kind) {
@@ -557,6 +568,7 @@ static void type_check_expr(
 
     if (proc_sig->params.count == expr->proc_call.params.count) {
       for (size_t i = 0; i < proc_sig->params.count; i++) {
+        // Type check proc call params
         type_check_expr(
             a,
             operand_block,
@@ -583,6 +595,8 @@ static void type_check_expr(
 
     ty->kind     = TYPE_PROC;
     ty->proc_sig = &expr->proc.sig;
+
+    analyze_block_ordered(a, &expr->proc.block);
   } break;
 
   case EXPR_STRUCT: {
@@ -608,6 +622,8 @@ static void type_check_expr(
 
     ty->kind = TYPE_PRIMITIVE;
     ty->prim = PRIM_TYPE_VOID;
+
+    analyze_block_ordered(a, &expr->block);
   } break;
   }
 
@@ -681,6 +697,10 @@ static void add_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
       if (result.errors.count > 0) {
         For(err, result.errors) APPEND(a->errors, *err);
       }
+    } break;
+
+    case EXPR_PROC: {
+      expr->proc.name = stmt->const_decl.name;
     } break;
 
     default: break;
@@ -981,56 +1001,10 @@ static void type_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
   }
 }
 
-static void
-stmt_analyze_child_block(analyzer_t *a, block_t *block, stmt_t *stmt);
-
-// Only analyzes children expressions to the expression passed in
-// Does not analyze the expression itself, only useful for analyzing
-// children scopes, etc
-static void
-expr_analyze_child_block(analyzer_t *a, block_t *block, expr_t *expr) {
-  expr = inner_expr(expr);
-  switch (expr->kind) {
-  case EXPR_PROC: {
-    analyze_block_ordered(a, &expr->proc.block);
-  } break;
-
-  case EXPR_BLOCK: {
-    analyze_block_ordered(a, &expr->block);
-  } break;
-
-  default: break;
-  }
-}
-
-static void
-stmt_analyze_child_block(analyzer_t *a, block_t *block, stmt_t *stmt) {
-  switch (stmt->kind) {
-  case STMT_CONST_DECL: {
-    expr_analyze_child_block(a, block, &stmt->const_decl.expr);
-  } break;
-
-  case STMT_VAR_DECL: {
-    expr_analyze_child_block(a, block, &stmt->var_decl.expr);
-  } break;
-
-  case STMT_VAR_ASSIGN: {
-    expr_analyze_child_block(a, block, &stmt->var_assign.expr);
-  } break;
-
-  case STMT_EXPR: {
-    expr_analyze_child_block(a, block, &stmt->expr);
-  } break;
-
-  default: break;
-  }
-}
-
 static void analyze_block_unordered(analyzer_t *a, block_t *block) {
   For(stmt, block->stmts) { add_stmt(a, block, stmt); }
   For(stmt, block->stmts) { symbol_check_stmt(a, block, stmt); }
   For(stmt, block->stmts) { type_check_stmt(a, block, stmt); }
-  For(stmt, block->stmts) { stmt_analyze_child_block(a, block, stmt); }
 }
 
 static void analyze_block_ordered(analyzer_t *a, block_t *block) {
@@ -1038,7 +1012,6 @@ static void analyze_block_ordered(analyzer_t *a, block_t *block) {
     add_stmt(a, block, stmt);
     symbol_check_stmt(a, block, stmt);
     type_check_stmt(a, block, stmt);
-    stmt_analyze_child_block(a, block, stmt);
   }
 }
 
