@@ -418,30 +418,13 @@ static void codegen_expr(
     return codegen_const_expr(llvm, mod, operand_block, NULL, expr, val);
 
   case EXPR_ACCESS: {
-    symbol_t *sym = get_expr_sym(&operand_block->scope, expr->access.left);
-    assert(sym);
+    block_t *expr_block = NULL;
+    symbol_t *sym       = NULL;
+    expr_t *inner = get_access_expr(operand_block, expr, &expr_block, &sym);
 
-    switch (sym->kind) {
-    case SYMBOL_CONST_DECL: {
-      expr_t *decl_expr = inner_expr(&sym->const_decl->expr);
-
-      switch (decl_expr->kind) {
-      case EXPR_IMPORT: {
-        codegen_expr(
-            llvm,
-            mod,
-            operand_block,
-            &decl_expr->import.ast->block,
-            expr->access.right,
-            &sym->value);
-        *val = sym->value;
-      } break;
-
-      default: break;
-      }
-    } break;
-
-    default: break;
+    if (inner) {
+      codegen_expr(llvm, mod, operand_block, expr_block, inner, &sym->value);
+      *val = sym->value;
     }
   } break;
 

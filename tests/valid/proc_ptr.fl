@@ -10,10 +10,17 @@ main :: proc () {
   x := caller(callback, 123);
 
   x = caller(proc(i32) -> i32 {
-    return 123;
+    b: i32 = 123;
+    return b;
   }, 123);
 
   c := proc (x: i32) -> i32 {
+    return (proc(x: i32) -> i32 { 
+      return 123;
+    })(x);
+  };
+
+  d := proc (x: i32) -> i32 {
     return (proc(x: i32) -> i32 { 
       return x;
     })(x);

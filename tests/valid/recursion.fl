@@ -1,0 +1,7 @@
+recursive :: proc (a: i32) -> i32 {
+  return recursive(a);
+}
+
+main :: proc () {
+  a := recursive;
+}

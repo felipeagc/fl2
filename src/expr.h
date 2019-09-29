@@ -18,7 +18,7 @@ static symbol_t *get_expr_sym(scope_t *scope, expr_t *expr) {
     case PRIMARY_INT:
     case PRIMARY_FLOAT:
     case PRIMARY_PRIMITIVE_TYPE:
-    case PRIMARY_STRING: 
+    case PRIMARY_STRING:
     case PRIMARY_CSTRING: break;
 
     case PRIMARY_IDENT: {
@@ -83,6 +83,41 @@ static symbol_t *get_expr_sym(scope_t *scope, expr_t *expr) {
 
   case EXPR_BLOCK: {
   } break;
+  }
+
+  return NULL;
+}
+
+static expr_t *get_access_expr(
+    block_t *block, expr_t *expr, block_t **out_block, symbol_t **out_sym) {
+  if (out_block) *out_block = block;
+
+  switch (expr->kind) {
+  case EXPR_ACCESS: {
+    symbol_t *sym = get_expr_sym(&block->scope, expr->access.left);
+
+    if (!sym) break;
+    if (out_sym) *out_sym = sym;
+
+    switch (sym->kind) {
+    case SYMBOL_CONST_DECL: {
+      expr_t *decl_expr = inner_expr(&sym->const_decl->expr);
+
+      switch (decl_expr->kind) {
+      case EXPR_IMPORT: {
+        return get_access_expr(
+            &decl_expr->import.ast->block, expr->access.right, out_block, out_sym);
+      } break;
+
+      default: break;
+      }
+    } break;
+
+    default: break;
+    }
+  } break;
+
+  default: return expr;
   }
 
   return NULL;

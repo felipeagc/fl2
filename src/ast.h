@@ -58,6 +58,7 @@ typedef struct struct_t {
 typedef struct proc_call_t {
   expr_t *expr;
   expr_slice_t params;
+  proc_signature_t *sig;
 } proc_call_t;
 
 typedef struct import_t {
