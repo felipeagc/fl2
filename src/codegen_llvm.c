@@ -237,7 +237,7 @@ static void codegen_const_expr(
     } break;
 
     case PRIMARY_IDENT: {
-      symbol_t *sym = scope_get(&operand_block->scope, expr->primary.string);
+      symbol_t *sym = scope_get(&operation_block->scope, expr->primary.string);
       assert(sym);
 
       if (sym->value.kind == VALUE_UNDEFINED) {
@@ -375,7 +375,7 @@ static void codegen_expr(
       return codegen_const_expr(llvm, mod, operand_block, NULL, expr, val);
 
     case PRIMARY_IDENT: {
-      symbol_t *sym = scope_get(&operand_block->scope, expr->primary.string);
+      symbol_t *sym = scope_get(&operation_block->scope, expr->primary.string);
       assert(sym);
 
       if (sym->value.kind == VALUE_UNDEFINED) {
@@ -433,7 +433,7 @@ static void codegen_expr(
     memset(&fun_val, 0, sizeof(fun_val));
 
     codegen_expr(
-        llvm, mod, operand_block, NULL, expr->proc_call.expr, &fun_val);
+        llvm, mod, operation_block, NULL, expr->proc_call.expr, &fun_val);
     assert(fun_val.kind != VALUE_UNDEFINED);
 
     LLVMValueRef fun = load_val(mod, &fun_val);
@@ -630,7 +630,8 @@ static void codegen_stmts(llvm_t *llvm, module_t *mod, block_t *block) {
     } break;
 
     case STMT_EXPR: {
-
+      value_t value;
+      codegen_expr(llvm, mod, block, NULL, &stmt->expr, &value);
     } break;
 
     case STMT_RETURN: {

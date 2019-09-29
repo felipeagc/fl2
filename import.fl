@@ -1,5 +1,7 @@
-other :: import "entity.fl";
-using other;
+entity :: import "entity.fl";
+using entity;
+
+using import "tests/valid/c.fl";
 
 MyStruct :: struct {
 
@@ -33,8 +35,7 @@ caller :: proc (callback: proc* (i32) -> i32) -> i32 {
 main :: proc () {
 	str2 := ConstString;
 
-  hello :: (import "other.fl");
-  using (hello);
+  other :: (import "other.fl");
 
 	str := c"asd";
 
@@ -43,7 +44,7 @@ main :: proc () {
   global = bignum;
   global = 123;
 
-  bb: i64 = (hello.sum(1, 2));
+  bb: i64 = (other.sum(1, 2));
   bb = 123;
 
   xyz := fun_alias(123);
@@ -66,9 +67,9 @@ main :: proc () {
 
   void_proc :: proc () {}
 
-  fun_ptr := hello.puts;
+  fun_ptr := other.sum;
 
-  fun_ptr();
+  fun_ptr(1, 2);
 
   my_i32: i32;
 
@@ -78,7 +79,7 @@ main :: proc () {
   my_f32 = 123;
 
   my_i64: i64;
-  e1: other.Entity;
+  e1: entity.Entity;
   e2: Entity;
   e3: Entity;
   e4: Entity;
@@ -86,9 +87,9 @@ main :: proc () {
   asd(123);
 
   derp :: proc () -> i32 {
-    aaa :: hello.puts;
+    aaa :: other.sum;
     some_int :: 123;
-    b := hello.sum(some_int, 2);
+    b := other.sum(some_int, 2);
     b = 123;
 
     aaaa := derp();
@@ -103,4 +104,6 @@ main :: proc () {
   derp();
 
   aaa := derp();
+
+  puts(c"Hello");
 }

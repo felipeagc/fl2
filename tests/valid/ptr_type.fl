@@ -1,0 +1,6 @@
+using import "c.fl";
+
+main :: proc () {
+  str: *u8 = c"hello";
+  puts(c"hello");
+}

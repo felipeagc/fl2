@@ -98,7 +98,22 @@ static bool expr_as_type(analyzer_t *a, block_t *block, expr_t *expr) {
   } break;
 
   case EXPR_UNARY: {
-    // TODO
+    switch (expr->unary.kind) {
+    case UNOP_DEREF: {
+      res = true;
+
+      type_t *ty = bump_alloc(&a->ctx->alloc, sizeof(type_t));
+      memset(ty, 0, sizeof(*ty));
+      expr->as_type = ty;
+
+      ty->kind = TYPE_PTR;
+
+      res |= expr_as_type(a, block, expr->right);
+      if (res) ty->subtype = expr->right->as_type;
+    } break;
+
+    default: break;
+    }
   } break;
 
   case EXPR_BINARY: {
@@ -169,7 +184,7 @@ static symbol_t *symbol_check_expr(
     case PRIMARY_CSTRING: break;
 
     case PRIMARY_IDENT: {
-      symbol_t *sym = scope_get(&operand_block->scope, expr->primary.string);
+      symbol_t *sym = scope_get(&operation_block->scope, expr->primary.string);
 
       if (!sym) {
         error(a, expr->pos, "invalid identifier");
@@ -259,7 +274,12 @@ static symbol_t *symbol_check_expr(
     expr->proc_call.sig = proc_sig;
 
     if (proc_sig->params.count != expr->proc_call.params.count) {
-      error(a, expr->pos, "wrong procedure parameter count");
+      error(
+          a,
+          expr->pos,
+          "wrong procedure parameter count, expected %zu, got %zu",
+          proc_sig->params.count,
+          expr->proc_call.params.count);
       break;
     }
   } break;
@@ -426,7 +446,7 @@ static void type_check_expr(
     } break;
 
     case PRIMARY_IDENT: {
-      symbol_t *sym = get_expr_sym(&operand_block->scope, expr);
+      symbol_t *sym = get_expr_sym(&operation_block->scope, expr);
       if (!sym) break;
 
       switch (sym->kind) {
@@ -471,9 +491,10 @@ static void type_check_expr(
   } break;
 
   case EXPR_PROC_CALL: {
-    type_check_expr(a, operand_block, NULL, expr->proc_call.expr, NULL);
+    type_check_expr(a, operation_block, NULL, expr->proc_call.expr, NULL);
 
     if (expr->proc_call.sig == NULL) break;
+
     proc_signature_t *proc_sig = expr->proc_call.sig;
 
     expr_slice_t return_types = proc_sig->return_types;
@@ -635,14 +656,16 @@ static void add_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
 
       free(dir);
 
-      ast_t *ast         = bump_alloc(&a->ctx->alloc, sizeof(ast_t));
-      error_set_t result = ctx_process_file(a->ctx, full_path, ast);
+      expr->import.ast = bump_alloc(&a->ctx->alloc, sizeof(ast_t));
+
+      error_set_t result =
+          ctx_process_file(a->ctx, full_path, expr->import.ast);
       if (result.errors.count > 0) {
         For(err, result.errors) APPEND(a->errors, *err);
         break;
       }
 
-      APPEND(block->scope.siblings, ast->block.scope);
+      APPEND(block->scope.siblings, expr->import.ast->block.scope);
     } break;
 
     default: break;

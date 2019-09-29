@@ -232,13 +232,20 @@ static void scan_string(scanner_t *s, bool c_string) {
 
   while (!is_at_end(s)) {
     if (peek(s) == '\\') {
-      char slash = next(s);
-      if (peek(s) == '"' || peek(s) == 't' || peek(s) == 'n' ||
-          peek(s) == '\\') {
-        sb_append_char(&s->ctx->sb, next(s));
-      } else {
-        sb_append_char(&s->ctx->sb, slash);
+      next(s);
+
+      switch (peek(s)) {
+      case '"': sb_append_char(&s->ctx->sb, '"'); break;
+      case 't': sb_append_char(&s->ctx->sb, '\t'); break;
+      case 'n': sb_append_char(&s->ctx->sb, '\n'); break;
+      case '\\': sb_append_char(&s->ctx->sb, '\\'); break;
+      default: {
+        sb_append_char(&s->ctx->sb, '\\');
+        sb_append_char(&s->ctx->sb, peek(s));
+      } break;
       }
+
+      next(s);
       continue;
     }
 
@@ -386,7 +393,8 @@ static void scan_token(scanner_t *s) {
     next(s);
     if (peek(s) == '/') {
       // Comment
-      while (!is_newline(next(s))) {}
+      while (!is_newline(next(s))) {
+      }
       break;
     }
 

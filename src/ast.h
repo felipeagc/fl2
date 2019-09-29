@@ -123,20 +123,6 @@ typedef struct binary_op_t {
   } kind;
 } binary_op_t;
 
-typedef enum expr_kind_t {
-  EXPR_PRIMARY,
-  EXPR_EXPR,
-  EXPR_STRUCT,
-  EXPR_PROC,
-  EXPR_PROC_PTR,
-  EXPR_IMPORT,
-  EXPR_ACCESS,
-  EXPR_PROC_CALL,
-  EXPR_UNARY,
-  EXPR_BINARY,
-  EXPR_BLOCK,
-} expr_kind_t;
-
 typedef struct type_t {
   enum {
     TYPE_UNDEFINED,
@@ -165,6 +151,20 @@ typedef struct type_t {
 
   LLVMTypeRef ref;
 } type_t;
+
+typedef enum expr_kind_t {
+  EXPR_PRIMARY,
+  EXPR_EXPR,
+  EXPR_STRUCT,
+  EXPR_PROC,
+  EXPR_PROC_PTR,
+  EXPR_IMPORT,
+  EXPR_ACCESS,
+  EXPR_PROC_CALL,
+  EXPR_UNARY,
+  EXPR_BINARY,
+  EXPR_BLOCK,
+} expr_kind_t;
 
 typedef struct expr_t {
   pos_t pos;

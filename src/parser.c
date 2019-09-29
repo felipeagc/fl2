@@ -387,6 +387,32 @@ static bool parse_access(parser_t *p, expr_t *expr) {
   return res;
 }
 
+static bool parse_unary(parser_t *p, expr_t *expr) {
+  bool res = true;
+
+  switch (peek(p)->type) {
+  case TOKEN_MUL: {
+    // Dereference
+    next(p);
+
+    expr->kind       = EXPR_UNARY;
+    expr->unary.kind = UNOP_DEREF;
+
+    expr->right = bump_alloc(&p->ctx->alloc, sizeof(expr_t));
+    memset(expr->right, 0, sizeof(*expr->right));
+    expr->right->pos = peek(p)->pos;
+    if (!parse_access(p, expr->right)) res = false;
+    expr->right->pos.len = peek(p)->pos.offset - expr->right->pos.offset;
+  } break;
+
+  default: {
+    res |= parse_access(p, expr);
+  } break;
+  }
+
+  return res;
+}
+
 static bool parse_struct_proc_import(parser_t *p, expr_t *expr) {
   switch (peek(p)->type) {
   case TOKEN_PROC: {
@@ -401,7 +427,7 @@ static bool parse_struct_proc_import(parser_t *p, expr_t *expr) {
     return parse_import(p, &expr->import);
   } break;
   default: {
-    return parse_access(p, expr);
+    return parse_unary(p, expr);
   } break;
   }
 }
