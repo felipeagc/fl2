@@ -92,7 +92,6 @@ main :: proc () {
     b := other.sum(some_int, 2);
     b = 123;
 
-    aaaa := derp();
     asdf := global;
 
     return 123;
