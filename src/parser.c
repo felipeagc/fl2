@@ -400,9 +400,19 @@ static bool parse_unary(parser_t *p, expr_t *expr) {
 
     expr->right = bump_alloc(&p->ctx->alloc, sizeof(expr_t));
     memset(expr->right, 0, sizeof(*expr->right));
-    expr->right->pos = peek(p)->pos;
-    if (!parse_access(p, expr->right)) res = false;
-    expr->right->pos.len = peek(p)->pos.offset - expr->right->pos.offset;
+    if (!parse_expr(p, expr->right)) res = false;
+  } break;
+
+  case TOKEN_AMPERSAND: {
+    // Address
+    next(p);
+
+    expr->kind       = EXPR_UNARY;
+    expr->unary.kind = UNOP_ADDRESS;
+
+    expr->right = bump_alloc(&p->ctx->alloc, sizeof(expr_t));
+    memset(expr->right, 0, sizeof(*expr->right));
+    if (!parse_expr(p, expr->right)) res = false;
   } break;
 
   default: {

@@ -457,7 +457,70 @@ static void codegen_expr(
   } break;
 
   case EXPR_UNARY: {
-    // TODO
+    value_t right_val;
+    memset(&right_val, 0, sizeof(right_val));
+    codegen_expr(llvm, mod, operand_block, NULL, expr->right, &right_val);
+
+    switch (expr->unary.kind) {
+    case UNOP_DEREF: {
+      switch (right_val.kind) {
+      case VALUE_LOCAL_VAR:
+      case VALUE_GLOBAL_VAR: {
+        val->kind  = VALUE_LOCAL_VAR;
+        val->value = load_val(mod, &right_val);
+      } break;
+
+      case VALUE_CONST: {
+        assert(expr->right->type->kind == TYPE_PTR);
+        assert(expr->right->type->subtype->kind == TYPE_PRIMITIVE);
+        assert(expr->right->type->subtype->prim == PRIM_TYPE_U8);
+
+        // Dereferencing c string literals
+        val->kind  = VALUE_TMP_VAR;
+        val->value = LLVMBuildLoad(mod->builder, right_val.value, "");
+      } break;
+
+      default: {
+        // Can't dereference these values
+        assert(0);
+      } break;
+      }
+    } break;
+
+    case UNOP_ADDRESS: {
+      switch (right_val.kind) {
+      case VALUE_LOCAL_VAR:
+      case VALUE_GLOBAL_VAR: {
+        val->kind  = VALUE_TMP_VAR;
+        val->value = right_val.value;
+      } break;
+
+      case VALUE_TMP_VAR:
+      case VALUE_PROC:
+      case VALUE_CONST: {
+        value_t alloc_val;
+        memset(&alloc_val, 0, sizeof(alloc_val));
+
+        alloc_val.kind  = VALUE_LOCAL_VAR;
+        alloc_val.value = LLVMBuildAlloca(
+            mod->builder, llvm_type(llvm, expr->right->type), "");
+        LLVMBuildStore(mod->builder, right_val.value, alloc_val.value);
+
+        val->kind  = VALUE_TMP_VAR;
+        val->value = alloc_val.value;
+      } break;
+
+      default: {
+        // Can't take the address of these values
+        assert(0);
+      } break;
+      }
+    } break;
+
+    case UNOP_NOT: {
+      // TODO: unimplemented
+    } break;
+    }
   } break;
 
   case EXPR_BINARY: {

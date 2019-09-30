@@ -225,11 +225,12 @@ static symbol_t *symbol_check_expr(
   } break;
 
   case EXPR_UNARY: {
-    // TODO
+    symbol_check_expr(a, operand_block, NULL, expr->right);
   } break;
 
   case EXPR_BINARY: {
-    // TODO
+    symbol_check_expr(a, operand_block, NULL, expr->left);
+    symbol_check_expr(a, operand_block, NULL, expr->right);
   } break;
 
   case EXPR_PROC_CALL: {
@@ -483,7 +484,50 @@ static void type_check_expr(
   } break;
 
   case EXPR_UNARY: {
-    // TODO
+    switch (expr->unary.kind) {
+    case UNOP_DEREF: {
+      type_check_expr(a, operand_block, NULL, expr->right, NULL);
+
+      if (!expr->right->type) break;
+
+      if (expr->right->type->kind != TYPE_PTR) {
+        sb_reset(&a->ctx->sb);
+        print_type(&a->ctx->sb, expr->right->type);
+        strbuf_t type_name = bump_strdup(&a->ctx->alloc, sb_build(&a->ctx->sb));
+
+        error(
+            a,
+            expr->right->pos,
+            "can only dereference pointer types, got type: '%.*s'",
+            (int)type_name.count,
+            type_name.buf);
+        break;
+      }
+
+      expr->type = expr->right->type->subtype;
+    } break;
+
+    case UNOP_ADDRESS: {
+      type_t *sub_expected_type = NULL;
+      if (expected_type && expected_type->kind == TYPE_PTR) {
+        sub_expected_type = expected_type->subtype;
+      }
+
+      type_check_expr(a, operand_block, NULL, expr->right, sub_expected_type);
+      if (!expr->right->type) break;
+
+      type_t *ty = bump_alloc(&a->ctx->alloc, sizeof(type_t));
+      memset(ty, 0, sizeof(*ty));
+      expr->type = ty;
+
+      ty->kind    = TYPE_PTR;
+      ty->subtype = expr->right->type;
+    } break;
+
+    case UNOP_NOT: {
+      // TODO: unimplemented
+    } break;
+    }
   } break;
 
   case EXPR_BINARY: {
@@ -834,6 +878,8 @@ static void type_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
     else
       stmt->const_decl.type = stmt->const_decl.expr.type;
 
+    if (!stmt->const_decl.type) break;
+
     if (expr_as_type(a, block, &stmt->const_decl.expr)) {
       // If the constant expression is a type, give the type a name
       stmt->const_decl.type->name = stmt->const_decl.name;
@@ -865,6 +911,8 @@ static void type_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
       stmt->var_decl.type = expected_type;
     else if (stmt->var_decl.flags & VAR_DECL_HAS_EXPR)
       stmt->var_decl.type = stmt->var_decl.expr.type;
+
+    if (!stmt->var_decl.type) break;
 
     switch (stmt->var_decl.type->kind) {
     case TYPE_PRIMITIVE: {

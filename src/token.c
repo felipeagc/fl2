@@ -27,6 +27,8 @@ char *TOKEN_STRINGS[] = {
     [TOKEN_DIV] = "/",
     [TOKEN_MOD] = "%",
 
+    [TOKEN_AMPERSAND] = "&",
+
     [TOKEN_EQL]    = "==",
     [TOKEN_LSS]    = "<",
     [TOKEN_GTR]    = ">",

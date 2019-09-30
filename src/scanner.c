@@ -407,6 +407,12 @@ static void scan_token(scanner_t *s) {
     APPEND(s->tokens, token);
   } break;
 
+  case '&': {
+    next(s);
+    token.type = TOKEN_AMPERSAND;
+    APPEND(s->tokens, token);
+  } break;
+
   case '=': {
     next(s);
     if (peek(s) == '=') {

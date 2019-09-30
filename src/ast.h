@@ -106,6 +106,7 @@ typedef struct primary_expr_t {
 typedef struct unary_op_t {
   enum {
     UNOP_DEREF,
+    UNOP_ADDRESS,
     UNOP_NOT,
   } kind;
 } unary_op_t;

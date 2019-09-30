@@ -106,4 +106,16 @@ main :: proc () {
   aaa := derp();
 
   puts(c"Hello");
+
+  addr := &derp;
+  deref : proc*() -> i32 = *addr;
+  xx := deref();
+
+  ia : *i32 = &123;
+  ai32 := *ia;
+  ai32 = derp();
+
+  hello_str := c"Hello";
+  ch := *hello_str;
+  ch = *c"hey";
 }

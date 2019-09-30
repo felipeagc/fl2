@@ -1,0 +1,24 @@
+using import "c.fl";
+
+test :: proc () -> i32 {
+  return 123;
+}
+
+main :: proc () {
+  hello_str := c"Hello";
+  ch: u8 = *hello_str;
+  ch = *c"hey";
+
+  i: i32 = 123;
+  a := &i;
+  a = &321;
+  a = &test();
+
+  short_addr: *u16 = &123;
+
+  b := *a;
+
+  addr := &test;
+  deref : proc*() -> i32 = *addr;
+  xx := deref();
+}

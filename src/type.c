@@ -112,7 +112,7 @@ void print_type(str_builder_t *sb, type_t *type) {
     sb_append(sb, STR("struct"));
   } break;
   case TYPE_PROC: {
-    sb_append(sb, STR("proc "));
+    sb_append(sb, STR("proc* "));
     if (type->proc_sig->flags & PROC_FLAG_EXTERN) {
       sb_append(sb, STR("extern "));
     }
