@@ -7,12 +7,14 @@
 #include "table.h"
 
 typedef struct ast_t ast_t;
+typedef struct proc_t proc_t;
 
 typedef struct ctx_t {
   str_builder_t sb;
   bump_alloc_t alloc;
   table_t file_table;
   table_t extern_table;
+  proc_t *main_proc;
 } ctx_t;
 
 void ctx_init(ctx_t *ctx);

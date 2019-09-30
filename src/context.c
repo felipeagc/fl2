@@ -9,6 +9,7 @@
 #include <stdio.h>
 
 void ctx_init(ctx_t *ctx) {
+  memset(ctx, 0, sizeof(*ctx));
   sb_init(&ctx->sb);
   bump_init(&ctx->alloc, 1 << 14);
   table_init(&ctx->file_table, 521);
@@ -20,6 +21,23 @@ error_set_t ctx_process_main_file(ctx_t *ctx, strbuf_t path) {
   memset(ast, 0, sizeof(*ast));
   error_set_t result = ctx_process_file(ctx, path, ast);
   if (result.errors.count > 0) return result;
+
+  if (!ctx->main_proc) {
+    static error_slice_t main_file_err_slice = {0};
+    static error_t main_file_err = {0};
+    main_file_err = (error_t){
+        .pos = (pos_t){.file = ast->file},
+        .msg = STR("missing main procedure"),
+    };
+    main_file_err_slice.buf   = &main_file_err;
+    main_file_err_slice.count = 1;
+    main_file_err_slice.cap   = 1;
+
+    return (error_set_t){
+        .type   = RESULT_ANALYZER,
+        .errors = main_file_err_slice,
+    };
+  }
 
   llvm_t llvm;
   llvm_init(&llvm, ctx);

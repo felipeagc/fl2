@@ -357,6 +357,14 @@ static symbol_t *symbol_check_expr(
       }
       table_set(&a->ctx->extern_table, name, &expr->proc);
     }
+
+    if (strbuf_cmp(STR("main"), expr->proc.name)) {
+      if (a->ctx->main_proc) {
+        error(a, expr->pos, "duplicate main procedure");
+        break;
+      }
+      a->ctx->main_proc = &expr->proc;
+    }
   } break;
 
   case EXPR_STRUCT: {
