@@ -1,4 +1,0 @@
-main :: proc () {
-  nested :: proc extern ();
-  nested();
-}

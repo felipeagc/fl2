@@ -755,7 +755,7 @@ error_set_t llvm_codegen(llvm_t *llvm, ast_t *ast) {
 
   codegen_block(llvm, &mod, &ast->block);
 
-  printf("%s\n", LLVMPrintModuleToString(mod.mod));
+  /* printf("%s\n", LLVMPrintModuleToString(mod.mod)); */
 
   char *error = NULL;
   if (LLVMVerifyModule(mod.mod, LLVMReturnStatusAction, &error)) {

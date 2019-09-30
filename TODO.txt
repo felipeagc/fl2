@@ -25,7 +25,6 @@ Analyzer
 	type hashing for fast type checking
 	force return statements
 	only allow one function called main across all files
-	don't allow duplicate extern procs across all files
 	check if main function exists
 
 Codegen

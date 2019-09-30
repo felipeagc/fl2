@@ -12,6 +12,7 @@ void ctx_init(ctx_t *ctx) {
   sb_init(&ctx->sb);
   bump_init(&ctx->alloc, 1 << 14);
   table_init(&ctx->file_table, 521);
+  table_init(&ctx->extern_table, 2048);
 }
 
 error_set_t ctx_process_main_file(ctx_t *ctx, strbuf_t path) {
@@ -78,4 +79,5 @@ void ctx_destroy(ctx_t *ctx) {
   sb_destroy(&ctx->sb);
   bump_destroy(&ctx->alloc);
   table_destroy(&ctx->file_table);
+  table_destroy(&ctx->extern_table);
 }

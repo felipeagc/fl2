@@ -1,4 +1,4 @@
-using import "c.fl";
+using import "../c.fl";
 
 main :: proc () {
   str: *u8 = c"hello";

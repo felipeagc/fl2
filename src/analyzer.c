@@ -348,11 +348,14 @@ static symbol_t *symbol_check_expr(
       break;
     }
 
-    if (expr->proc.sig.flags & PROC_FLAG_EXTERN) {
-      proc_t *block_proc = scope_proc(&operand_block->scope);
-      if (block_proc) {
-        error(a, expr->pos, "extern procedure has to be top level");
+    if (expr->proc.sig.flags & PROC_FLAG_EXTERN && expr->proc.name.count > 0) {
+      strbuf_t name       = expr->proc.name;
+      proc_t *extern_proc = table_get(&a->ctx->extern_table, name);
+      if (extern_proc) {
+        error(a, expr->pos, "duplicate extern procedure");
+        break;
       }
+      table_set(&a->ctx->extern_table, name, &expr->proc);
     }
   } break;
 

@@ -33,10 +33,10 @@ compiler_deps = [
 ]
 
 compiler_inc_dirs = include_directories('src')
-compiler_lib = library('fl', compiler_lib_sources, dependencies: compiler_deps)
+compiler_lib = static_library('fl', compiler_lib_sources, dependencies: compiler_deps)
 compiler_dep = declare_dependency(link_with: compiler_lib, dependencies: compiler_deps, include_directories: compiler_inc_dirs)
 
-compiler_exe = executable('fl', compiler_exe_sources, dependencies: [compiler_dep])
+compiler_exe = executable('fl', compiler_exe_sources, dependencies: [compiler_dep], install: true)
 
 test_script = find_program(meson.source_root() + '/tests/test.sh')
 test('fl tests',

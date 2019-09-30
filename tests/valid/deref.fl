@@ -1,4 +1,4 @@
-using import "c.fl";
+using import "../c.fl";
 
 test :: proc () -> i32 {
   return 123;

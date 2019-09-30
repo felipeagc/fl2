@@ -1,0 +1,7 @@
+c :: import "../c.fl";
+
+puts :: proc extern ();
+
+main :: proc () {
+	c.puts(c"Hello");
+}

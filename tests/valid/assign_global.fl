@@ -1,4 +1,4 @@
-c :: import "c.fl";
+c :: import "../c.fl";
 
 global: i32 = 321;
 

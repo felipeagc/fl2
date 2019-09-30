@@ -12,6 +12,7 @@ typedef struct ctx_t {
   str_builder_t sb;
   bump_alloc_t alloc;
   table_t file_table;
+  table_t extern_table;
 } ctx_t;
 
 void ctx_init(ctx_t *ctx);
