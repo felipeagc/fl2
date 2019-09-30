@@ -1,1 +1,3 @@
 puts :: proc extern (*u8);
+
+printf :: proc extern (*u8, i32);

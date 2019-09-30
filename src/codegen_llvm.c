@@ -7,6 +7,7 @@
 #include <llvm-c/BitWriter.h>
 #include <llvm-c/Core.h>
 #include <llvm-c/DebugInfo.h>
+#include <llvm-c/ExecutionEngine.h>
 #include <llvm-c/Target.h>
 #include <llvm-c/TargetMachine.h>
 #include <stdio.h>
@@ -630,11 +631,27 @@ static void codegen_stmts(llvm_t *llvm, module_t *mod, block_t *block) {
 
       switch (var_decl->sym->kind) {
       case SYMBOL_GLOBAL_VAR: {
-        var_decl->sym->value.kind  = VALUE_GLOBAL_VAR;
-        var_decl->sym->value.value = LLVMAddGlobal(
+        LLVMValueRef glob = LLVMAddGlobal(
             mod->mod,
             llvm_type(llvm, var_decl->type),
             bump_c_str(&llvm->ctx->alloc, var_decl->name));
+
+        LLVMSetLinkage(glob, LLVMInternalLinkage);
+        LLVMSetGlobalConstant(glob, false);
+
+        if (var_decl->flags & VAR_DECL_HAS_EXPR) {
+          value_t const_value;
+          memset(&const_value, 0, sizeof(const_value));
+
+          codegen_const_expr(
+              llvm, mod, block, NULL, &var_decl->expr, &const_value);
+          assert(const_value.value);
+
+          LLVMSetInitializer(glob, load_val(mod, &const_value));
+        }
+
+        var_decl->sym->value.kind  = VALUE_GLOBAL_VAR;
+        var_decl->sym->value.value = glob;
       } break;
 
       case SYMBOL_LOCAL_VAR: {
@@ -745,6 +762,26 @@ error_set_t llvm_codegen(llvm_t *llvm, ast_t *ast) {
     printf("Failed to verify module:\n%s\n", error);
     exit(1);
   }
+
+  LLVMExecutionEngineRef engine;
+  error = NULL;
+
+  LLVMLinkInMCJIT();
+  LLVMInitializeNativeTarget();
+  LLVMInitializeNativeAsmPrinter();
+  if (LLVMCreateExecutionEngineForModule(&engine, mod.mod, &error) != 0) {
+    fprintf(stderr, "failed to create execution engine\n");
+    abort();
+  }
+
+  if (error) {
+    fprintf(stderr, "error: %s\n", error);
+    LLVMDisposeMessage(error);
+    exit(EXIT_FAILURE);
+  }
+
+  void (*main_func)() = (void (*)())LLVMGetFunctionAddress(engine, "main");
+  if (main_func) main_func();
 
   mod_destroy(&mod);
 
