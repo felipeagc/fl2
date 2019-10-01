@@ -673,9 +673,12 @@ static void codegen_stmts(llvm_t *llvm, module_t *mod, block_t *block) {
     case STMT_VAR_ASSIGN: {
       var_assign_t *var_assign = &stmt->var_assign;
 
-      symbol_t *sym = get_expr_sym(&block->scope, &var_assign->assigned);
-      assert(sym);
-      assert(sym->kind == SYMBOL_GLOBAL_VAR || sym->kind == SYMBOL_LOCAL_VAR);
+      value_t assigned;
+      memset(&assigned, 0, sizeof(assigned));
+      codegen_expr(llvm, mod, block, NULL, &var_assign->assigned, &assigned);
+      assert(
+          assigned.kind == VALUE_LOCAL_VAR ||
+          assigned.kind == VALUE_GLOBAL_VAR);
 
       value_t value;
       memset(&value, 0, sizeof(value));
@@ -683,7 +686,7 @@ static void codegen_stmts(llvm_t *llvm, module_t *mod, block_t *block) {
       codegen_expr(llvm, mod, block, NULL, &var_assign->expr, &value);
       assert(value.value);
 
-      LLVMBuildStore(mod->builder, load_val(mod, &value), sym->value.value);
+      LLVMBuildStore(mod->builder, load_val(mod, &value), assigned.value);
     } break;
 
     case STMT_EXPR: {
