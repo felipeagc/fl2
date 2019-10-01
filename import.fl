@@ -1,7 +1,7 @@
 entity :: import "entity.fl";
 using entity;
 
-using import "tests/valid/c.fl";
+using import "tests/c.fl";
 
 MyStruct :: struct {
 
@@ -117,4 +117,8 @@ main :: proc () {
   hello_str := c"Hello";
   ch := *hello_str;
   ch = *c"hey";
+
+	{
+		puts(c"Hey");
+	}
 }

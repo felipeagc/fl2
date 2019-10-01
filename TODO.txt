@@ -26,3 +26,11 @@ Analyzer
 	force return statements
 
 Codegen
+
+
+Ideas
+	- Treat const decls with block exprs as namespaces
+		Namespace :: {
+			some_proc :: proc () { }
+		}
+		Namespace.some_proc();

@@ -342,7 +342,8 @@ static void codegen_const_expr(
     // TODO
   } break;
 
-  case EXPR_BLOCK: break;
+  case EXPR_BLOCK: {
+  } break;
 
   case EXPR_IMPORT: {
     codegen_stmts(llvm, mod, &expr->import.ast->block);
@@ -528,7 +529,9 @@ static void codegen_expr(
     // TODO
   } break;
 
-  case EXPR_BLOCK: break;
+  case EXPR_BLOCK: {
+    codegen_stmts(llvm, mod, &expr->block);
+  } break;
 
   case EXPR_STRUCT:
   case EXPR_IMPORT:
