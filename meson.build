@@ -17,6 +17,7 @@ compiler_lib_sources = [
 
 	'src/context.c',
 	'src/type.c',
+	'src/expr.c',
 	'src/scanner.c',
 	'src/parser.c',
 	'src/analyzer.c',

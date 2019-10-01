@@ -1,5 +1,7 @@
 using import "../c.fl";
 
+Const: i32 : 123;
+
 main :: proc () {
   a: i32 = 123;
   a = 321;
@@ -18,4 +20,9 @@ main :: proc () {
   printf(c"a = %d\n", a);
   printf(c"*b = %d\n", *b);
   printf(c"**c = %d\n", **c);
+
+  // Creating a pointer to a constant actually allocates
+  // the constant on the stack so it can be dereferenced
+  const_ptr := &Const;
+  printf(c"%d\n", *const_ptr);
 }

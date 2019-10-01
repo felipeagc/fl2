@@ -458,7 +458,7 @@ static void type_check_expr(
     } break;
 
     case PRIMARY_IDENT: {
-      symbol_t *sym = get_expr_sym(&operation_block->scope, expr);
+      symbol_t *sym = get_expr_sym(expr, &operation_block->scope);
       if (!sym) break;
 
       switch (sym->kind) {
@@ -752,17 +752,11 @@ static void symbol_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
       symbol_check_expr(a, block, NULL, &stmt->const_decl.type_expr);
     }
 
-    symbol_t *sym = symbol_check_expr(a, block, NULL, &stmt->const_decl.expr);
+    symbol_check_expr(a, block, NULL, &stmt->const_decl.expr);
 
-    if (sym) {
-      switch (sym->kind) {
-      case SYMBOL_GLOBAL_VAR:
-      case SYMBOL_LOCAL_VAR: {
-        error(a, stmt->pos, "constant cannot refer to a variable");
-      } break;
-
-      default: break;
-      }
+    if (!is_expr_const(&stmt->const_decl.expr, &block->scope)) {
+      error(a, stmt->pos, "can't assign non constant expression to a constant");
+      break;
     }
   } break;
 

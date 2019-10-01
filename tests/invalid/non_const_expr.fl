@@ -1,0 +1,6 @@
+Const :: 123;
+NonConst :: &Const;
+
+main :: proc () {
+
+}
