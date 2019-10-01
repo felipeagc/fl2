@@ -379,33 +379,7 @@ static void codegen_expr(
     case PRIMARY_IDENT: {
       symbol_t *sym = scope_get(&operation_block->scope, expr->primary.string);
       assert(sym);
-
-      if (sym->value.kind == VALUE_UNDEFINED) {
-        switch (sym->kind) {
-        case SYMBOL_GLOBAL_VAR:
-        case SYMBOL_LOCAL_VAR: {
-          codegen_expr(
-              llvm,
-              mod,
-              operand_block,
-              NULL,
-              &sym->const_decl->expr,
-              &sym->value);
-        } break;
-
-        case SYMBOL_CONST_DECL: {
-          codegen_const_expr(
-              llvm,
-              mod,
-              operand_block,
-              NULL,
-              &sym->const_decl->expr,
-              &sym->value);
-        } break;
-
-        case SYMBOL_DUMMY: assert(0);
-        }
-      }
+      assert(sym->value.kind != VALUE_UNDEFINED);
 
       *val = sym->value;
     } break;
