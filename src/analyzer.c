@@ -665,7 +665,7 @@ static void add_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
       snprintf(
           full_path.buf,
           full_path.cap,
-          "%s/%.*s",
+          "%s%.*s",
           dir,
           (int)expr->import.path.count,
           expr->import.path.buf);
@@ -704,7 +704,7 @@ static void add_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
       snprintf(
           full_path.buf,
           full_path.cap,
-          "%s/%.*s",
+          "%s%.*s",
           dir,
           (int)expr->import.path.count,
           expr->import.path.buf);

@@ -24,8 +24,9 @@ error_set_t ctx_process_main_file(ctx_t *ctx, strbuf_t path) {
 
   if (!ctx->main_proc) {
     static error_slice_t main_file_err_slice = {0};
-    static error_t main_file_err = {0};
-    main_file_err = (error_t){
+    static error_t main_file_err             = {0};
+
+    main_file_err                            = (error_t){
         .pos = (pos_t){.file = ast->file},
         .msg = STR("missing main procedure"),
     };
@@ -45,14 +46,8 @@ error_set_t ctx_process_main_file(ctx_t *ctx, strbuf_t path) {
   return llvm_codegen(&llvm, ast);
 }
 
-error_set_t ctx_process_file(ctx_t *ctx, strbuf_t path, ast_t *ast) {
-  char *fullpath = absolute_path(path.buf);
-  strbuf_t full_path;
-  full_path.count = strlen(fullpath);
-  full_path.cap   = full_path.count + 1;
-  full_path.buf   = fullpath;
-
-  assert((path.count + 1) == path.cap);
+error_set_t ctx_process_file(ctx_t *ctx, strbuf_t full_path, ast_t *ast) {
+  assert((full_path.count + 1) == full_path.cap);
 
   file_t *file = table_get(&ctx->file_table, full_path);
 

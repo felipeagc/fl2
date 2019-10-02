@@ -1,0 +1,5 @@
+using import "this_file_does_not_exist.fl";
+
+main :: proc () {
+
+}
