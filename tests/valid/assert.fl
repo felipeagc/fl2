@@ -3,4 +3,5 @@ using import "../c.fl";
 main :: proc () {
   @assert(1);
   @assert(123);
+  @assert(true);
 }

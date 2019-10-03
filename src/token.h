@@ -65,6 +65,10 @@ typedef enum {
   TOKEN_INTRIN_ASSERT,
 
   // Keywords:
+  TOKEN_TRUE,
+  TOKEN_FALSE,
+  TOKEN_NULL,
+
   TOKEN_FOR,
   TOKEN_BREAK,
   TOKEN_CONTINUE,

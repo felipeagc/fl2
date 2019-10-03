@@ -101,6 +101,8 @@ typedef struct primary_expr_t {
   enum {
     PRIMARY_INT,
     PRIMARY_FLOAT,
+    PRIMARY_BOOL,
+    PRIMARY_NULL,
     PRIMARY_IDENT,
     PRIMARY_PRIMITIVE_TYPE,
     PRIMARY_STRING,
@@ -108,6 +110,7 @@ typedef struct primary_expr_t {
   } kind;
 
   union {
+    bool boolean;
     int64_t i64;
     double f64;
     strbuf_t string;

@@ -6,6 +6,8 @@ symbol_t *get_expr_sym(expr_t *expr, scope_t *scope) {
     switch (expr->primary.kind) {
     case PRIMARY_INT:
     case PRIMARY_FLOAT:
+    case PRIMARY_BOOL:
+    case PRIMARY_NULL:
     case PRIMARY_PRIMITIVE_TYPE:
     case PRIMARY_STRING:
     case PRIMARY_CSTRING: break;
@@ -121,6 +123,8 @@ bool is_expr_const(expr_t *expr, scope_t *scope) {
     switch (expr->primary.kind) {
     case PRIMARY_INT:
     case PRIMARY_FLOAT:
+    case PRIMARY_BOOL:
+    case PRIMARY_NULL:
     case PRIMARY_PRIMITIVE_TYPE:
     case PRIMARY_STRING:
     case PRIMARY_CSTRING: return true;

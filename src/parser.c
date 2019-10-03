@@ -246,6 +246,23 @@ static bool parse_primary(parser_t *p, primary_expr_t *primary) {
     primary->i64  = tok->i64;
   } break;
 
+  case TOKEN_TRUE: {
+    next(p);
+    primary->kind    = PRIMARY_BOOL;
+    primary->boolean = true;
+  } break;
+
+  case TOKEN_FALSE: {
+    next(p);
+    primary->kind    = PRIMARY_BOOL;
+    primary->boolean = false;
+  } break;
+
+  case TOKEN_NULL: {
+    next(p);
+    primary->kind = PRIMARY_NULL;
+  } break;
+
   case TOKEN_IDENT: {
     next(p);
 

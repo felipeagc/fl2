@@ -124,81 +124,97 @@ static void codegen_const_expr(
 
   switch (expr->kind) {
   case EXPR_PRIMARY: {
-
     switch (expr->primary.kind) {
     case PRIMARY_INT:
     case PRIMARY_FLOAT: {
+      assert(expr->type->kind == TYPE_PRIMITIVE);
 
-      if (expr->type->kind == TYPE_PRIMITIVE) {
-        switch (expr->type->prim) {
-        case PRIM_TYPE_I8:
-        case PRIM_TYPE_I16:
-        case PRIM_TYPE_I32:
-        case PRIM_TYPE_I64: {
-          switch (expr->primary.kind) {
-          case PRIMARY_INT: {
-            val->kind  = VALUE_CONST;
-            val->value = LLVMConstInt(
-                llvm_type(llvm, expr->type),
-                (unsigned long long)expr->primary.i64,
-                true);
-          } break;
-
-          case PRIMARY_FLOAT: assert(0);
-
-          default: break;
-          }
+      switch (expr->type->prim) {
+      case PRIM_TYPE_I8:
+      case PRIM_TYPE_I16:
+      case PRIM_TYPE_I32:
+      case PRIM_TYPE_I64: {
+        switch (expr->primary.kind) {
+        case PRIMARY_INT: {
+          val->kind  = VALUE_CONST;
+          val->value = LLVMConstInt(
+              llvm_type(llvm, expr->type),
+              (unsigned long long)expr->primary.i64,
+              true);
         } break;
 
-        case PRIM_TYPE_U8:
-        case PRIM_TYPE_U16:
-        case PRIM_TYPE_U32:
-        case PRIM_TYPE_U64: {
-          switch (expr->primary.kind) {
-          case PRIMARY_INT: {
-            val->kind  = VALUE_CONST;
-            val->value = LLVMConstInt(
-                llvm_type(llvm, expr->type),
-                (unsigned long long)expr->primary.i64,
-                false);
-          } break;
+        case PRIMARY_FLOAT: assert(0);
 
-          case PRIMARY_FLOAT: assert(0);
-
-          default: break;
-          }
-        } break;
-
-        case PRIM_TYPE_F32:
-        case PRIM_TYPE_F64: {
-          switch (expr->primary.kind) {
-          case PRIMARY_INT: {
-            val->kind  = VALUE_CONST;
-            val->value = LLVMConstReal(
-                llvm_type(llvm, expr->type), (double)expr->primary.i64);
-          } break;
-
-          case PRIMARY_FLOAT: {
-            val->kind = VALUE_CONST;
-            val->value =
-                LLVMConstReal(llvm_type(llvm, expr->type), expr->primary.f64);
-          } break;
-
-          default: break;
-          }
-        } break;
-
-        case PRIM_TYPE_BOOL:
-        case PRIM_TYPE_VOID:
-        case PRIM_TYPE_INT_BEGIN:
-        case PRIM_TYPE_INT_END:
-        case PRIM_TYPE_NUM_BEGIN:
-        case PRIM_TYPE_NUM_END:
-        case PRIM_TYPE_FLOAT_BEGIN:
-        case PRIM_TYPE_FLOAT_END: assert(0);
+        default: break;
         }
+      } break;
+
+      case PRIM_TYPE_U8:
+      case PRIM_TYPE_U16:
+      case PRIM_TYPE_U32:
+      case PRIM_TYPE_U64: {
+        switch (expr->primary.kind) {
+        case PRIMARY_INT: {
+          val->kind  = VALUE_CONST;
+          val->value = LLVMConstInt(
+              llvm_type(llvm, expr->type),
+              (unsigned long long)expr->primary.i64,
+              false);
+        } break;
+
+        case PRIMARY_FLOAT: assert(0);
+
+        default: break;
+        }
+      } break;
+
+      case PRIM_TYPE_F32:
+      case PRIM_TYPE_F64: {
+        switch (expr->primary.kind) {
+        case PRIMARY_INT: {
+          val->kind  = VALUE_CONST;
+          val->value = LLVMConstReal(
+              llvm_type(llvm, expr->type), (double)expr->primary.i64);
+        } break;
+
+        case PRIMARY_FLOAT: {
+          val->kind = VALUE_CONST;
+          val->value =
+              LLVMConstReal(llvm_type(llvm, expr->type), expr->primary.f64);
+        } break;
+
+        default: break;
+        }
+      } break;
+
+      case PRIM_TYPE_BOOL:
+      case PRIM_TYPE_VOID:
+      case PRIM_TYPE_INT_BEGIN:
+      case PRIM_TYPE_INT_END:
+      case PRIM_TYPE_NUM_BEGIN:
+      case PRIM_TYPE_NUM_END:
+      case PRIM_TYPE_FLOAT_BEGIN:
+      case PRIM_TYPE_FLOAT_END: assert(0);
       }
 
+    } break;
+
+    case PRIMARY_BOOL: {
+      assert(expr->type->kind == TYPE_PRIMITIVE);
+      assert(expr->type->prim == PRIM_TYPE_BOOL);
+
+      val->kind  = VALUE_CONST;
+      val->value = LLVMConstInt(
+          llvm_type(llvm, expr->type),
+          (unsigned long long)expr->primary.boolean,
+          false);
+    } break;
+
+    case PRIMARY_NULL: {
+      assert(expr->type->kind == TYPE_PTR);
+
+      val->kind  = VALUE_CONST;
+      val->value = LLVMConstPointerNull(llvm_type(llvm, expr->type));
     } break;
 
     case PRIMARY_STRING: break;
@@ -462,6 +478,8 @@ static void codegen_expr(
     switch (expr->primary.kind) {
     case PRIMARY_INT:
     case PRIMARY_FLOAT:
+    case PRIMARY_BOOL:
+    case PRIMARY_NULL:
     case PRIMARY_STRING:
     case PRIMARY_CSTRING:
     case PRIMARY_PRIMITIVE_TYPE:

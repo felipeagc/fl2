@@ -37,6 +37,8 @@ static bool expr_as_type(analyzer_t *a, block_t *block, expr_t *expr) {
     switch (expr->primary.kind) {
     case PRIMARY_INT:
     case PRIMARY_FLOAT:
+    case PRIMARY_BOOL:
+    case PRIMARY_NULL:
     case PRIMARY_STRING:
     case PRIMARY_CSTRING: break;
 
@@ -170,6 +172,8 @@ static symbol_t *symbol_check_expr(
     switch (expr->primary.kind) {
     case PRIMARY_INT:
     case PRIMARY_FLOAT:
+    case PRIMARY_BOOL:
+    case PRIMARY_NULL:
     case PRIMARY_PRIMITIVE_TYPE:
     case PRIMARY_STRING:
     case PRIMARY_CSTRING: break;
@@ -441,6 +445,28 @@ static void type_check_expr(
         ty->prim = expected_type->prim;
       } else {
         ty->prim = PRIM_TYPE_F64;
+      }
+    } break;
+
+    case PRIMARY_BOOL: {
+      type_t *ty = bump_alloc(&a->ctx->alloc, sizeof(type_t));
+      memset(ty, 0, sizeof(*ty));
+      expr->type = ty;
+
+      ty->kind = TYPE_PRIMITIVE;
+      ty->prim = PRIM_TYPE_BOOL;
+    } break;
+
+    case PRIMARY_NULL: {
+      type_t *ty = bump_alloc(&a->ctx->alloc, sizeof(type_t));
+      memset(ty, 0, sizeof(*ty));
+      expr->type = ty;
+
+      ty->kind = TYPE_PTR;
+      if (expected_type) {
+        if (expected_type->kind == TYPE_PTR) {
+          ty->subtype = expected_type->subtype;
+        }
       }
     } break;
 
