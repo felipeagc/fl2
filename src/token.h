@@ -24,7 +24,7 @@ typedef enum {
   TOKEN_COLON, // :
   TOKEN_SEMI,  // ;
 
-  TOKEN_ELLIPSIS,   // ...
+  TOKEN_ELLIPSIS, // ...
 
   TOKEN_ADD, // +
   TOKEN_SUB, // -

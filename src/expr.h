@@ -17,4 +17,3 @@ expr_t *get_access_expr(
     block_t *block, expr_t *expr, block_t **out_block, symbol_t **out_sym);
 
 bool is_expr_const(expr_t *expr, scope_t *scope);
-

@@ -73,6 +73,7 @@ typedef struct import_t {
 typedef enum prim_type_t {
   PRIM_TYPE_NUM_BEGIN,
 
+  PRIM_TYPE_INT_BEGIN,
   PRIM_TYPE_I8,
   PRIM_TYPE_I16,
   PRIM_TYPE_I32,
@@ -84,6 +85,7 @@ typedef enum prim_type_t {
   PRIM_TYPE_U64,
 
   PRIM_TYPE_BOOL,
+  PRIM_TYPE_INT_END,
 
   PRIM_TYPE_FLOAT_BEGIN,
   PRIM_TYPE_F32,
@@ -311,4 +313,3 @@ typedef struct symbol_t {
     var_decl_t *var_decl;
   };
 } symbol_t;
-

@@ -191,4 +191,3 @@ bool is_expr_const(expr_t *expr, scope_t *scope) {
 
   return false;
 }
-

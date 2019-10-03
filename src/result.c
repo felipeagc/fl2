@@ -68,4 +68,3 @@ void print_error(str_builder_t *sb, error_t *err) {
   strbuf_t str = sb_build(sb);
   printf("%.*s", (int)str.count, str.buf);
 }
-

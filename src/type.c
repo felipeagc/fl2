@@ -78,6 +78,7 @@ void print_type(str_builder_t *sb, type_t *type) {
 
     switch (type->prim) {
     case PRIM_TYPE_NUM_BEGIN: break;
+    case PRIM_TYPE_INT_BEGIN: break;
     case PRIM_TYPE_I8: sb_append(sb, STR("i8")); break;
     case PRIM_TYPE_I16: sb_append(sb, STR("i16")); break;
     case PRIM_TYPE_I32: sb_append(sb, STR("i32")); break;
@@ -86,12 +87,13 @@ void print_type(str_builder_t *sb, type_t *type) {
     case PRIM_TYPE_U16: sb_append(sb, STR("u16")); break;
     case PRIM_TYPE_U32: sb_append(sb, STR("u32")); break;
     case PRIM_TYPE_U64: sb_append(sb, STR("u64")); break;
+    case PRIM_TYPE_BOOL: sb_append(sb, STR("bool")); break;
+    case PRIM_TYPE_INT_END: break;
     case PRIM_TYPE_FLOAT_BEGIN: break;
     case PRIM_TYPE_F32: sb_append(sb, STR("f32")); break;
     case PRIM_TYPE_F64: sb_append(sb, STR("f64")); break;
     case PRIM_TYPE_FLOAT_END: break;
     case PRIM_TYPE_NUM_END: break;
-    case PRIM_TYPE_BOOL: sb_append(sb, STR("bool")); break;
     case PRIM_TYPE_VOID: sb_append(sb, STR("void")); break;
     }
 

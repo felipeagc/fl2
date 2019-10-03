@@ -527,6 +527,13 @@ static void type_check_expr(
 
       For(param, expr->intrin.params) {
         type_check_expr(a, operand_block, NULL, param, NULL);
+
+        if (!((param->type->kind == TYPE_PRIMITIVE &&
+               param->type->prim > PRIM_TYPE_INT_BEGIN &&
+               param->type->prim < PRIM_TYPE_INT_END) ||
+              param->type->kind == TYPE_PTR)) {
+          error(a, param->pos, "invalid parameter for assert");
+        }
       }
     } break;
     }

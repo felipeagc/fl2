@@ -54,6 +54,8 @@ static LLVMTypeRef llvm_type(llvm_t *llvm, type_t *type) {
     case PRIM_TYPE_VOID: type->ref = LLVMVoidType(); break;
 
     case PRIM_TYPE_NUM_BEGIN:
+    case PRIM_TYPE_INT_BEGIN:
+    case PRIM_TYPE_INT_END:
     case PRIM_TYPE_FLOAT_BEGIN:
     case PRIM_TYPE_FLOAT_END:
     case PRIM_TYPE_NUM_END: assert(0);
@@ -188,10 +190,12 @@ static void codegen_const_expr(
 
         case PRIM_TYPE_BOOL:
         case PRIM_TYPE_VOID:
-        case PRIM_TYPE_FLOAT_END:
-        case PRIM_TYPE_NUM_END:
+        case PRIM_TYPE_INT_BEGIN:
+        case PRIM_TYPE_INT_END:
         case PRIM_TYPE_NUM_BEGIN:
-        case PRIM_TYPE_FLOAT_BEGIN: assert(0);
+        case PRIM_TYPE_NUM_END:
+        case PRIM_TYPE_FLOAT_BEGIN:
+        case PRIM_TYPE_FLOAT_END: assert(0);
         }
       }
 
@@ -390,18 +394,57 @@ static void is_expr_true(
     block_t *operand_block,
     expr_t *expr,
     value_t *val) {
-  value_t value;
-  codegen_expr(llvm, mod, operand_block, NULL, expr, &value);
+  switch (expr->type->kind) {
+  case TYPE_PRIMITIVE: {
+    switch (expr->type->prim) {
+    case PRIM_TYPE_I8:
+    case PRIM_TYPE_U8:
+    case PRIM_TYPE_I16:
+    case PRIM_TYPE_U16:
+    case PRIM_TYPE_I32:
+    case PRIM_TYPE_U32:
+    case PRIM_TYPE_I64:
+    case PRIM_TYPE_U64:
+    case PRIM_TYPE_BOOL: {
+      value_t value;
+      codegen_expr(llvm, mod, operand_block, NULL, expr, &value);
 
-  LLVMValueRef value_ref = load_val(mod, &value);
+      LLVMValueRef value_ref = load_val(mod, &value);
 
-  val->kind  = VALUE_TMP_VAR;
-  val->value = LLVMBuildICmp(
-      mod->builder,
-      LLVMIntNE,
-      value_ref,
-      LLVMConstInt(LLVMTypeOf(value_ref), 0, false),
-      "");
+      val->kind  = VALUE_TMP_VAR;
+      val->value = LLVMBuildICmp(
+          mod->builder,
+          LLVMIntNE,
+          value_ref,
+          LLVMConstInt(LLVMTypeOf(value_ref), 0, false),
+          "");
+    } break;
+
+    default: assert(0);
+    }
+
+  } break;
+
+  case TYPE_PTR: {
+    value_t value;
+    codegen_expr(llvm, mod, operand_block, NULL, expr, &value);
+
+    LLVMValueRef value_ref = load_val(mod, &value);
+
+    LLVMValueRef ptr_val =
+        LLVMBuildPtrToInt(mod->builder, value_ref, LLVMInt64Type(), "");
+
+    val->kind  = VALUE_TMP_VAR;
+    val->value = LLVMBuildICmp(
+        mod->builder,
+        LLVMIntNE,
+        ptr_val,
+        LLVMConstInt(LLVMTypeOf(ptr_val), 0, false),
+        "");
+  } break;
+
+  default: assert(0);
+  }
 }
 
 static void codegen_expr(
