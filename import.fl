@@ -2,6 +2,7 @@ entity :: import "entity.fl";
 using entity;
 
 using import "tests/c.fl";
+no :: import "no.fl";
 
 MyStruct :: struct {
 

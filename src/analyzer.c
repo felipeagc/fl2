@@ -714,7 +714,7 @@ process_import(analyzer_t *a, expr_t *expr, import_t *import) {
   import->ast = bump_alloc(&a->ctx->alloc, sizeof(ast_t));
   APPEND(a->ast->imports, import->ast);
 
-  return ctx_process_file(a->ctx, full_path, &import->ast);
+  return ctx_process_file(a->ctx, full_path, &import->ast, &expr->pos);
 }
 
 static void add_import(analyzer_t *a, block_t *block, stmt_t *stmt) {

@@ -19,7 +19,7 @@ void ctx_init(ctx_t *ctx) {
 
 error_set_t ctx_process_main_file(ctx_t *ctx, strbuf_t path) {
   ast_t *ast         = bump_alloc(&ctx->alloc, sizeof(ast_t));
-  error_set_t result = ctx_process_file(ctx, path, &ast);
+  error_set_t result = ctx_process_file(ctx, path, &ast, NULL);
   if (result.errors.count > 0) return result;
 
   if (!ctx->main_proc) {
@@ -46,7 +46,8 @@ error_set_t ctx_process_main_file(ctx_t *ctx, strbuf_t path) {
   return llvm_codegen(&llvm, ast);
 }
 
-error_set_t ctx_process_file(ctx_t *ctx, strbuf_t full_path, ast_t **ast) {
+error_set_t
+ctx_process_file(ctx_t *ctx, strbuf_t full_path, ast_t **ast, pos_t *pos) {
   assert((full_path.count + 1) == full_path.cap);
 
   file_t *file = table_get(&ctx->file_table, full_path);
@@ -57,9 +58,18 @@ error_set_t ctx_process_file(ctx_t *ctx, strbuf_t full_path, ast_t **ast) {
   if (!file) {
     file = bump_alloc(&ctx->alloc, sizeof(file_t));
     if (!file_init(file, ctx, full_path)) {
-      printf(
-          "Failed to open file: %.*s\n", (int)full_path.count, full_path.buf);
-      exit(1);
+      sb_reset(&ctx->sb);
+      sb_sprintf(
+          &ctx->sb,
+          "failed to import file: %.*s",
+          (int)full_path.count,
+          full_path.buf);
+      error_t err = {
+          .msg = bump_strdup(&ctx->alloc, sb_build(&ctx->sb)),
+      };
+      if (pos) err.pos = *pos;
+      APPEND(result.errors, err);
+      return result;
     }
 
     table_set(&ctx->file_table, full_path, file);
