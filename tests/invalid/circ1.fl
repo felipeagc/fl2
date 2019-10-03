@@ -1,0 +1,7 @@
+c2 :: import "circ2.fl";
+
+MyType :: i32;
+
+hey :: proc () {
+  b: c2.OtherType;
+}

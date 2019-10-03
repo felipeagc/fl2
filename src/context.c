@@ -8,6 +8,15 @@
 #include <assert.h>
 #include <stdio.h>
 
+#define dbg(str)                                                               \
+  printf(                                                                      \
+      "%s:%s:%u :: '%.*s'\n",                                                  \
+      __FILE__,                                                                \
+      __func__,                                                                \
+      __LINE__,                                                                \
+      (int)(str).count,                                                        \
+      (str).buf)
+
 void ctx_init(ctx_t *ctx) {
   memset(ctx, 0, sizeof(*ctx));
   sb_init(&ctx->sb);
@@ -17,16 +26,15 @@ void ctx_init(ctx_t *ctx) {
 }
 
 error_set_t ctx_process_main_file(ctx_t *ctx, strbuf_t path) {
-  ast_t *ast = bump_alloc(&ctx->alloc, sizeof(ast_t));
-  memset(ast, 0, sizeof(*ast));
-  error_set_t result = ctx_process_file(ctx, path, ast);
+  ast_t *ast         = bump_alloc(&ctx->alloc, sizeof(ast_t));
+  error_set_t result = ctx_process_file(ctx, path, &ast);
   if (result.errors.count > 0) return result;
 
   if (!ctx->main_proc) {
     static error_slice_t main_file_err_slice = {0};
     static error_t main_file_err             = {0};
 
-    main_file_err                            = (error_t){
+    main_file_err = (error_t){
         .pos = (pos_t){.file = ast->file},
         .msg = STR("missing main procedure"),
     };
@@ -46,7 +54,7 @@ error_set_t ctx_process_main_file(ctx_t *ctx, strbuf_t path) {
   return llvm_codegen(&llvm, ast);
 }
 
-error_set_t ctx_process_file(ctx_t *ctx, strbuf_t full_path, ast_t *ast) {
+error_set_t ctx_process_file(ctx_t *ctx, strbuf_t full_path, ast_t **ast) {
   assert((full_path.count + 1) == full_path.cap);
 
   file_t *file = table_get(&ctx->file_table, full_path);
@@ -55,7 +63,7 @@ error_set_t ctx_process_file(ctx_t *ctx, strbuf_t full_path, ast_t *ast) {
   memset(&result, 0, sizeof(result));
 
   if (!file) {
-    file_t *file = bump_alloc(&ctx->alloc, sizeof(file_t));
+    file = bump_alloc(&ctx->alloc, sizeof(file_t));
     if (!file_init(file, ctx, full_path)) {
       printf(
           "Failed to open file: %.*s\n", (int)full_path.count, full_path.buf);
@@ -63,6 +71,9 @@ error_set_t ctx_process_file(ctx_t *ctx, strbuf_t full_path, ast_t *ast) {
     }
 
     table_set(&ctx->file_table, full_path, file);
+
+    file->ast = *ast;
+    memset(file->ast, 0, sizeof(*file->ast));
 
     scanner_t scanner;
     scanner_init(&scanner, ctx);
@@ -74,16 +85,18 @@ error_set_t ctx_process_file(ctx_t *ctx, strbuf_t full_path, ast_t *ast) {
     parser_t parser;
     parser_init(&parser, ctx);
 
-    memset(ast, 0, sizeof(*ast));
-    result = parser_parse(&parser, file, tokens, ast);
+    result = parser_parse(&parser, file, tokens, file->ast);
     if (result.errors.count > 0) return result;
 
     analyzer_t analyzer;
     analyzer_init(&analyzer, ctx);
 
-    result = analyzer_analyze(&analyzer, ast);
+    result = analyzer_analyze(&analyzer, file->ast);
     if (result.errors.count > 0) return result;
   }
+
+  assert(file);
+  *ast = file->ast;
 
   return result;
 }

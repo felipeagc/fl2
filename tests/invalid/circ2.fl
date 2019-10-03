@@ -1,0 +1,7 @@
+c1 :: import "circ1.fl";
+
+OtherType :: i32;
+
+hello :: proc () {
+  a: c1.SomeType;
+}

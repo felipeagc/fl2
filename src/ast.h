@@ -10,6 +10,9 @@ typedef SLICE(expr_t) expr_slice_t;
 typedef struct stmt_t stmt_t;
 typedef SLICE(stmt_t) stmt_slice_t;
 
+typedef struct ast_t ast_t;
+typedef SLICE(ast_t*) ast_ptr_slice_t;
+
 typedef struct type_t type_t;
 
 typedef struct LLVMOpaqueValue *LLVMValueRef;
@@ -252,6 +255,7 @@ typedef struct stmt_t {
 typedef struct ast_t {
   file_t *file;
   block_t block;
+  ast_ptr_slice_t imports;
 } ast_t;
 
 typedef struct value_t {

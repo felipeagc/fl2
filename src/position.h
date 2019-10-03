@@ -3,11 +3,13 @@
 #include "strbuf.h"
 
 typedef struct ctx_t ctx_t;
+typedef struct ast_t ast_t;
 
 typedef struct file_t {
   strbuf_t path;
   strbuf_t abs_path;
   strbuf_t content;
+  ast_t *ast;
 } file_t;
 
 typedef struct pos_t {

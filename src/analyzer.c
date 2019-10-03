@@ -652,80 +652,13 @@ static void add_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
     stmt->const_decl.sym = sym;
 
     expr_t *expr = inner_expr(&stmt->const_decl.expr);
-
     switch (expr->kind) {
-    case EXPR_IMPORT: {
-      char *dir = get_file_dir(a->ast->file->abs_path.buf);
-
-      strbuf_t full_path;
-      full_path.count = strlen(dir) + 1 + expr->import.path.count;
-      full_path.cap   = full_path.count + 1;
-      full_path.buf   = bump_alloc(&a->ctx->alloc, full_path.cap);
-
-      snprintf(
-          full_path.buf,
-          full_path.cap,
-          "%s%.*s",
-          dir,
-          (int)expr->import.path.count,
-          expr->import.path.buf);
-
-      free(dir);
-
-      expr->import.ast = bump_alloc(&a->ctx->alloc, sizeof(ast_t));
-
-      error_set_t result =
-          ctx_process_file(a->ctx, full_path, expr->import.ast);
-      if (result.errors.count > 0) {
-        For(err, result.errors) APPEND(a->errors, *err);
-      }
-    } break;
-
     case EXPR_PROC: {
       expr->proc.name = stmt->const_decl.name;
     } break;
 
     default: break;
     }
-  } break;
-
-  case STMT_USING: {
-    expr_t *expr = inner_expr(&stmt->expr);
-
-    switch (expr->kind) {
-    case EXPR_IMPORT: {
-      char *dir = get_file_dir(a->ast->file->abs_path.buf);
-
-      strbuf_t full_path;
-      full_path.count = strlen(dir) + 1 + expr->import.path.count;
-      full_path.cap   = full_path.count + 1;
-      full_path.buf   = bump_alloc(&a->ctx->alloc, full_path.cap);
-
-      snprintf(
-          full_path.buf,
-          full_path.cap,
-          "%s%.*s",
-          dir,
-          (int)expr->import.path.count,
-          expr->import.path.buf);
-
-      free(dir);
-
-      expr->import.ast = bump_alloc(&a->ctx->alloc, sizeof(ast_t));
-
-      error_set_t result =
-          ctx_process_file(a->ctx, full_path, expr->import.ast);
-      if (result.errors.count > 0) {
-        For(err, result.errors) APPEND(a->errors, *err);
-        break;
-      }
-
-      APPEND(block->scope.siblings, expr->import.ast->block.scope);
-    } break;
-
-    default: break;
-    }
-
   } break;
 
   case STMT_VAR_DECL: {
@@ -739,6 +672,97 @@ static void add_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
                                                     : SYMBOL_LOCAL_VAR;
     sym->var_decl      = &stmt->var_decl;
     stmt->var_decl.sym = sym;
+  } break;
+
+  default: break;
+  }
+}
+
+static bool import_is_circular(ast_t *ast, ast_t *origin) {
+  if (ast == origin) return true;
+
+  For(import, ast->imports) {
+    if (import_is_circular(*import, origin)) return true;
+  }
+
+  return false;
+}
+
+static inline error_set_t
+process_import(analyzer_t *a, expr_t *expr, import_t *import) {
+  char *dir = get_file_dir(a->ast->file->abs_path.buf);
+
+  strbuf_t full_path;
+  full_path.count = strlen(dir) + import->path.count;
+  full_path.cap   = full_path.count + 1;
+  full_path.buf   = bump_alloc(&a->ctx->alloc, full_path.cap);
+
+  snprintf(
+      full_path.buf,
+      full_path.cap,
+      "%s%.*s",
+      dir,
+      (int)import->path.count,
+      import->path.buf);
+
+  free(dir);
+
+  // Check if import is circular
+  file_t *file = table_get(&a->ctx->file_table, full_path);
+  if (file) {
+    if (import_is_circular(file->ast, a->ast)) {
+      error_set_t result;
+      memset(&result, 0, sizeof(result));
+      error_t err = {
+          .pos = expr->pos,
+          .msg = STR("circular import detected"),
+      };
+      APPEND(result.errors, err);
+      return result;
+    }
+  }
+
+  import->ast = bump_alloc(&a->ctx->alloc, sizeof(ast_t));
+  APPEND(a->ast->imports, import->ast);
+
+  return ctx_process_file(a->ctx, full_path, &import->ast);
+}
+
+static void add_import(analyzer_t *a, block_t *block, stmt_t *stmt) {
+  switch (stmt->kind) {
+  case STMT_CONST_DECL: {
+    expr_t *expr = inner_expr(&stmt->const_decl.expr);
+
+    switch (expr->kind) {
+    case EXPR_IMPORT: {
+      error_set_t result = process_import(a, expr, &expr->import);
+      if (result.errors.count > 0) {
+        For(err, result.errors) APPEND(a->errors, *err);
+        break;
+      }
+
+    } break;
+
+    default: break;
+    }
+  } break;
+
+  case STMT_USING: {
+    expr_t *expr = inner_expr(&stmt->expr);
+
+    switch (expr->kind) {
+    case EXPR_IMPORT: {
+      error_set_t result = process_import(a, expr, &expr->import);
+      if (result.errors.count > 0) {
+        For(err, result.errors) APPEND(a->errors, *err);
+        break;
+      }
+
+      APPEND(block->scope.siblings, expr->import.ast->block.scope);
+    } break;
+
+    default: break;
+    }
   } break;
 
   default: break;
@@ -1065,6 +1089,10 @@ static void stmt_analyze_children(analyzer_t *a, block_t *block, stmt_t *stmt) {
 
 static void analyze_block_unordered(analyzer_t *a, block_t *block) {
   For(stmt, block->stmts) { add_stmt(a, block, stmt); }
+  For(stmt, block->stmts) { add_import(a, block, stmt); }
+
+  if (a->errors.count > 0) return;
+
   For(stmt, block->stmts) { symbol_check_stmt(a, block, stmt); }
   For(stmt, block->stmts) {
     type_check_stmt(a, block, stmt);
@@ -1075,6 +1103,10 @@ static void analyze_block_unordered(analyzer_t *a, block_t *block) {
 static void analyze_block_ordered(analyzer_t *a, block_t *block) {
   For(stmt, block->stmts) {
     add_stmt(a, block, stmt);
+    add_import(a, block, stmt);
+
+    if (a->errors.count > 0) return;
+
     symbol_check_stmt(a, block, stmt);
     type_check_stmt(a, block, stmt);
     stmt_analyze_children(a, block, stmt);
