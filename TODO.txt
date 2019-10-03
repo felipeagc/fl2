@@ -1,3 +1,21 @@
+Decisions to make
+- Attribute syntax => #(hello, align = 4)
+- Intrinsic syntax => @sizeof(i32)
+- Calling convention for proc
+- Syntax for marking variable as uninitialized
+- Private symbols => #(private)
+- Syntax for slices => [_]i32
+- Directives
+	- Build settings => #link("libsomething.a")
+	- Static if => #if @os_linux {...}
+	- Static assert => #assert(...)
+
+TODO:
+	- debug information
+	- variadic procedures
+	- var decl & assign cannot accept non-runtime expressions
+	- force return statements when required
+
 Scanner
 
 Parser
@@ -21,7 +39,6 @@ Parser
 	defer
 
 Analyzer
-	var decl & assign cannot accept non-runtime expressions
 	type hashing for fast type checking
 	force return statements
 

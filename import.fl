@@ -30,15 +30,15 @@ fun_alias :: asd;
 ConstString :: c"Hello";
 
 caller :: proc (callback: proc* (i32) -> i32) -> i32 {
-	return callback(123);
+  return callback(123);
 }
 
 main :: proc () {
-	str2 := ConstString;
+  str2 := ConstString;
 
   other :: (import "other.fl");
 
-	str := c"asd";
+  str := c"asd";
 
   bignum := BigConstant;
 
@@ -50,10 +50,10 @@ main :: proc () {
 
   xyz := fun_alias(123);
 
-	other_asd : proc* (i32) -> i32 = asd;
-	ret := other_asd(123);
+  other_asd : proc* (i32) -> i32 = asd;
+  ret := other_asd(123);
 
-	value := caller(asd);
+  value := caller(asd);
 
   a: i64 : 123;
   myint: MyInt = a;
@@ -119,7 +119,7 @@ main :: proc () {
   ch := *hello_str;
   ch = *c"hey";
 
-	{
-		puts(c"Hey");
-	}
+  {
+    puts(c"Hey");
+  }
 }
