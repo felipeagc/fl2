@@ -39,6 +39,7 @@ main :: proc () {
 
   str := c"asd";
 
+  size32: i32 = @sizeof(str);
   size: i64 = @sizeof(str);
   printf(c"size of *u8: %ld\n", size);
   printf(c"size of i32: %ld\n", @sizeof(i32));

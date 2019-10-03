@@ -272,7 +272,7 @@ static void codegen_const_expr(
 
       val->kind  = VALUE_CONST;
       val->value = LLVMConstInt(
-          LLVMInt64Type(),
+          llvm_type(llvm, expr->type),
           LLVMStoreSizeOfType(mod->data, llvm_type(llvm, type)),
           false);
     } break;

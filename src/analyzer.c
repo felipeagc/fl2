@@ -491,7 +491,13 @@ static void type_check_expr(
       type_t *ty = bump_alloc(&a->ctx->alloc, sizeof(type_t));
       memset(ty, 0, sizeof(*ty));
       ty->kind = TYPE_PRIMITIVE;
-      ty->prim = PRIM_TYPE_I64;
+      if (expected_type && expected_type->kind == TYPE_PRIMITIVE &&
+          expected_type->prim > PRIM_TYPE_NUM_BEGIN &&
+          expected_type->prim < PRIM_TYPE_NUM_END) {
+        ty->prim = expected_type->prim;
+      } else {
+        ty->prim = PRIM_TYPE_I64;
+      }
 
       expr->type = ty;
 
