@@ -1,7 +1,6 @@
 Decisions to make
 - Attribute syntax => #(hello, align = 4)
-- Intrinsic syntax => @sizeof(i32)
-- Calling convention for proc
+- Calling convention for proc => replace extern
 - Syntax for marking variable as uninitialized
 - Private symbols => #(private)
 - Syntax for slices => [_]i32
@@ -12,7 +11,6 @@ Decisions to make
 
 TODO:
 	- debug information
-	- variadic procedures
 	- var decl & assign cannot accept non-runtime expressions
 	- force return statements when required
 

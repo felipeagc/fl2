@@ -450,14 +450,23 @@ static bool parse_struct_proc_import(parser_t *p, expr_t *expr) {
 
 static bool parse_intrinsic(parser_t *p, expr_t *expr) {
   bool res = true;
+
   switch (peek(p)->type) {
-  case TOKEN_INTRIN_SIZEOF: {
+  case TOKEN_INTRIN_SIZEOF: expr->intrin.kind = INTRIN_SIZEOF; break;
+  case TOKEN_INTRIN_ASSERT: expr->intrin.kind = INTRIN_ASSERT; break;
+
+  default: return parse_struct_proc_import(p, expr);
+  }
+
+  expr->kind = EXPR_INTRIN;
+
+  switch (expr->intrin.kind) {
+  case INTRIN_SIZEOF:
+  case INTRIN_ASSERT: {
     next(p);
 
     if (!consume(p, TOKEN_LPAREN)) res = false;
 
-    expr->kind        = EXPR_INTRIN;
-    expr->intrin.kind = INTRIN_SIZEOF;
     memset(&expr->intrin.params, 0, sizeof(expr->intrin.params));
 
     expr_t param;
@@ -469,8 +478,6 @@ static bool parse_intrinsic(parser_t *p, expr_t *expr) {
 
     if (!consume(p, TOKEN_RPAREN)) res = false;
   } break;
-
-  default: return parse_struct_proc_import(p, expr);
   }
 
   return res;

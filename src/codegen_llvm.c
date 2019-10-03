@@ -276,6 +276,8 @@ static void codegen_const_expr(
           LLVMStoreSizeOfType(mod->data, llvm_type(llvm, type)),
           false);
     } break;
+
+    default: assert(0);
     }
   } break;
 
@@ -380,6 +382,34 @@ static void codegen_expr(
     block_t *operand_block,
     block_t *operation_block,
     expr_t *expr,
+    value_t *val);
+
+static void is_expr_true(
+    llvm_t *llvm,
+    module_t *mod,
+    block_t *operand_block,
+    expr_t *expr,
+    value_t *val) {
+  value_t value;
+  codegen_expr(llvm, mod, operand_block, NULL, expr, &value);
+
+  LLVMValueRef value_ref = load_val(mod, &value);
+
+  val->kind  = VALUE_TMP_VAR;
+  val->value = LLVMBuildICmp(
+      mod->builder,
+      LLVMIntNE,
+      value_ref,
+      LLVMConstInt(LLVMTypeOf(value_ref), 0, false),
+      "");
+}
+
+static void codegen_expr(
+    llvm_t *llvm,
+    module_t *mod,
+    block_t *operand_block,
+    block_t *operation_block,
+    expr_t *expr,
     value_t *val) {
   if (operation_block == NULL) operation_block = operand_block;
 
@@ -408,8 +438,38 @@ static void codegen_expr(
   case EXPR_EXPR:
     return codegen_expr(llvm, mod, operand_block, NULL, expr->expr, val);
 
-  case EXPR_INTRIN:
-    return codegen_const_expr(llvm, mod, operand_block, NULL, expr, val);
+  case EXPR_INTRIN: {
+    switch (expr->intrin.kind) {
+    case INTRIN_ASSERT: {
+      value_t condition = {0};
+      is_expr_true(
+          llvm, mod, operand_block, &expr->intrin.params.buf[0], &condition);
+
+      LLVMValueRef fun =
+          LLVMGetBasicBlockParent(LLVMGetInsertBlock(mod->builder));
+      assert(fun);
+
+      LLVMBasicBlockRef then_bb  = LLVMAppendBasicBlock(fun, "then");
+      LLVMBasicBlockRef merge_bb = LLVMAppendBasicBlock(fun, "merge");
+
+      LLVMBuildCondBr(
+          mod->builder, load_val(mod, &condition), merge_bb, then_bb);
+
+      // Then
+      {
+        LLVMPositionBuilderAtEnd(mod->builder, then_bb);
+        LLVMBuildUnreachable(mod->builder);
+        then_bb = LLVMGetInsertBlock(mod->builder);
+      }
+
+      // Merge
+      LLVMPositionBuilderAtEnd(mod->builder, merge_bb);
+    } break;
+
+    default:
+      return codegen_const_expr(llvm, mod, operand_block, NULL, expr, val);
+    }
+  } break;
 
   case EXPR_PROC:
     return codegen_const_expr(llvm, mod, operand_block, NULL, expr, val);

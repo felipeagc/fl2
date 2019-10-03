@@ -59,6 +59,7 @@ char *TOKEN_STRINGS[] = {
     [TOKEN_STRING_TYPE] = "string",
 
     [TOKEN_INTRIN_SIZEOF] = "@sizeof",
+    [TOKEN_INTRIN_ASSERT] = "@assert",
 
     [TOKEN_FOR]      = "for",
     [TOKEN_BREAK]    = "break",

@@ -208,7 +208,8 @@ static symbol_t *symbol_check_expr(
 
   case EXPR_INTRIN: {
     switch (expr->intrin.kind) {
-    case INTRIN_SIZEOF: {
+    case INTRIN_SIZEOF:
+    case INTRIN_ASSERT: {
       For(param, expr->intrin.params) {
         symbol_check_expr(a, operation_block, NULL, param);
       }
@@ -513,6 +514,16 @@ static void type_check_expr(
       }
 
       expr->type = ty;
+
+      For(param, expr->intrin.params) {
+        type_check_expr(a, operand_block, NULL, param, NULL);
+      }
+    } break;
+    case INTRIN_ASSERT: {
+      static type_t void_type;
+      void_type.kind = TYPE_PRIMITIVE;
+      void_type.prim = PRIM_TYPE_VOID;
+      expr->type     = &void_type;
 
       For(param, expr->intrin.params) {
         type_check_expr(a, operand_block, NULL, param, NULL);

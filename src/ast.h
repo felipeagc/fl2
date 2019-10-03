@@ -72,20 +72,26 @@ typedef struct import_t {
 
 typedef enum prim_type_t {
   PRIM_TYPE_NUM_BEGIN,
+
   PRIM_TYPE_I8,
   PRIM_TYPE_I16,
   PRIM_TYPE_I32,
   PRIM_TYPE_I64,
+
   PRIM_TYPE_U8,
   PRIM_TYPE_U16,
   PRIM_TYPE_U32,
   PRIM_TYPE_U64,
+
+  PRIM_TYPE_BOOL,
+
   PRIM_TYPE_FLOAT_BEGIN,
   PRIM_TYPE_F32,
   PRIM_TYPE_F64,
   PRIM_TYPE_FLOAT_END,
+
   PRIM_TYPE_NUM_END,
-  PRIM_TYPE_BOOL,
+
   PRIM_TYPE_VOID,
 } prim_type_t;
 
@@ -131,6 +137,7 @@ typedef struct binary_op_t {
 typedef struct intrinsic_t {
   enum {
     INTRIN_SIZEOF,
+    INTRIN_ASSERT,
   } kind;
   union {
     expr_slice_t params;

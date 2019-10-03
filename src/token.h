@@ -62,6 +62,7 @@ typedef enum {
   TOKEN_STRING_TYPE,
 
   TOKEN_INTRIN_SIZEOF,
+  TOKEN_INTRIN_ASSERT,
 
   // Keywords:
   TOKEN_FOR,
