@@ -42,11 +42,11 @@ static inline char peek(scanner_t *s) {
   return s->file->content.buf[s->offset];
 }
 
-static inline char peek_next(scanner_t *s) {
-  if ((s->offset + 1) >= s->file->content.count ||
-      s->file->content.buf[s->offset + 1] == '\0')
+static inline char peek_next(scanner_t *s, size_t offset) {
+  if ((s->offset + offset) >= s->file->content.count ||
+      s->file->content.buf[s->offset + offset] == '\0')
     return '\0';
-  return s->file->content.buf[s->offset + 1];
+  return s->file->content.buf[s->offset + offset];
 }
 
 static inline bool is_letter(char c) {
@@ -385,6 +385,14 @@ static void scan_token(scanner_t *s) {
   case '.': {
     next(s);
     token.type = TOKEN_DOT;
+
+    if (peek_next(s, 0) == '.' && peek_next(s, 1) == '.') {
+      next(s);
+      next(s);
+      token.pos.len = 3;
+      token.type    = TOKEN_ELLIPSIS;
+    }
+
     APPEND(s->tokens, token);
   } break;
   case ',': {
@@ -515,7 +523,7 @@ static void scan_token(scanner_t *s) {
 
   default: {
     if (is_letter(ch)) {
-      if (ch == 'c' && peek_next(s) == '\"') {
+      if (ch == 'c' && peek_next(s, 1) == '\"') {
         scan_string(s, true);
         break;
       }

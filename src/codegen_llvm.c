@@ -563,7 +563,10 @@ pre_pass_expr(llvm_t *llvm, module_t *mod, expr_t *expr, value_t *val) {
       }
 
       LLVMTypeRef fun_type = LLVMFunctionType(
-          return_type, param_types, proc->sig.params.count, false);
+          return_type,
+          param_types,
+          proc->sig.params.count,
+          proc->sig.flags & PROC_FLAG_VARIADIC);
       fun = LLVMAddFunction(mod->mod, fun_name, fun_type);
 
       if (proc->sig.flags & PROC_FLAG_EXTERN) {

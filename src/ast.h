@@ -33,9 +33,10 @@ typedef struct var_decl_t var_decl_t;
 typedef SLICE(var_decl_t) var_decl_slice_t;
 
 typedef enum proc_flags_t {
-  PROC_FLAG_INLINE  = 0x01,
-  PROC_FLAG_EXTERN  = 0x02,
-  PROC_FLAG_NO_BODY = 0x04,
+  PROC_FLAG_INLINE   = 0x01,
+  PROC_FLAG_EXTERN   = 0x02,
+  PROC_FLAG_NO_BODY  = 0x04,
+  PROC_FLAG_VARIADIC = 0x08,
 } proc_flags_t;
 
 typedef struct proc_signature_t {

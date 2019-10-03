@@ -131,6 +131,12 @@ static bool parse_proc(parser_t *p, expr_t *expr) {
   while (peek(p)->type != TOKEN_RPAREN) {
     // Parse arguments
 
+    if (peek(p)->type == TOKEN_ELLIPSIS) {
+      next(p);
+      expr->proc.sig.flags |= PROC_FLAG_VARIADIC;
+      break;
+    }
+
     var_decl_t param;
     memset(&param, 0, sizeof(param));
     param.flags |= VAR_DECL_HAS_TYPE;

@@ -45,6 +45,9 @@ symbol_t *get_expr_sym(expr_t *expr, scope_t *scope) {
     }
   } break;
 
+  case EXPR_INTRIN: {
+  } break;
+
   case EXPR_UNARY: {
   } break;
 
@@ -162,7 +165,8 @@ bool is_expr_const(expr_t *expr, scope_t *scope) {
   case EXPR_STRUCT:
   case EXPR_PROC:
   case EXPR_PROC_PTR:
-  case EXPR_IMPORT: return true;
+  case EXPR_IMPORT:
+  case EXPR_INTRIN: return true;
 
   case EXPR_PROC_CALL: return false;
 

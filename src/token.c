@@ -3,11 +3,11 @@
 char *TOKEN_STRINGS[] = {
     [TOKEN_EOF] = "EOF",
 
-    [TOKEN_INT]    = "integer",
-    [TOKEN_FLOAT]  = "float",
-    [TOKEN_STRING] = "\"string\"",
+    [TOKEN_INT]     = "integer",
+    [TOKEN_FLOAT]   = "float",
+    [TOKEN_STRING]  = "\"string\"",
     [TOKEN_CSTRING] = "c\"string\"",
-    [TOKEN_IDENT]  = "identifier",
+    [TOKEN_IDENT]   = "identifier",
 
     [TOKEN_LPAREN] = "(",
     [TOKEN_RPAREN] = ")",
@@ -20,6 +20,8 @@ char *TOKEN_STRINGS[] = {
     [TOKEN_COMMA] = ",",
     [TOKEN_COLON] = ":",
     [TOKEN_SEMI]  = ";",
+
+    [TOKEN_ELLIPSIS] = "...",
 
     [TOKEN_ADD] = "+",
     [TOKEN_SUB] = "-",

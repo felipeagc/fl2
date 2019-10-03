@@ -275,14 +275,27 @@ static symbol_t *symbol_check_expr(
 
     expr->proc_call.sig = proc_sig;
 
-    if (proc_sig->params.count != expr->proc_call.params.count) {
-      error(
-          a,
-          expr->pos,
-          "wrong procedure parameter count, expected %zu, got %zu",
-          proc_sig->params.count,
-          expr->proc_call.params.count);
-      break;
+    if (proc_sig->flags & PROC_FLAG_VARIADIC) {
+      if (proc_sig->params.count > expr->proc_call.params.count) {
+        error(
+            a,
+            expr->pos,
+            "wrong variadic procedure parameter count, expected %zu or more, "
+            "got %zu",
+            proc_sig->params.count,
+            expr->proc_call.params.count);
+        break;
+      }
+    } else {
+      if (proc_sig->params.count != expr->proc_call.params.count) {
+        error(
+            a,
+            expr->pos,
+            "wrong procedure parameter count, expected %zu, got %zu",
+            proc_sig->params.count,
+            expr->proc_call.params.count);
+        break;
+      }
     }
   } break;
 
@@ -1071,14 +1084,17 @@ static void expr_analyze_children(analyzer_t *a, block_t *block, expr_t *expr) {
     if (expr->proc_call.sig == NULL) break;
     proc_signature_t *proc_sig = expr->proc_call.sig;
 
-    if (proc_sig->params.count == expr->proc_call.params.count) {
-      for (size_t i = 0; i < proc_sig->params.count; i++) {
-        expr_t *param = &expr->proc_call.params.buf[i];
+    for (size_t i = 0; i < expr->proc_call.params.count; i++) {
+      expr_t *param = &expr->proc_call.params.buf[i];
 
-        symbol_check_expr(a, block, NULL, param);
-        type_check_expr(a, block, NULL, param, proc_sig->params.buf[i].type);
-        expr_analyze_children(a, block, param);
+      type_t *expected = NULL;
+      if (i < proc_sig->params.count) {
+        expected = proc_sig->params.buf[i].type;
       }
+
+      symbol_check_expr(a, block, NULL, param);
+      type_check_expr(a, block, NULL, param, expected);
+      expr_analyze_children(a, block, param);
     }
   } break;
 
