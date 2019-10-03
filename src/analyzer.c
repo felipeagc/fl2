@@ -1,5 +1,6 @@
 #include "analyzer.h"
 
+#include "dbg.h"
 #include "expr.h"
 #include "filesystem.h"
 #include "parser.h"
@@ -7,18 +8,6 @@
 #include "type.h"
 #include <assert.h>
 #include <stdio.h>
-
-#define dbg(str)                                                               \
-  printf(                                                                      \
-      "%s:%s:%u :: '%.*s'\n",                                                  \
-      __FILE__,                                                                \
-      __func__,                                                                \
-      __LINE__,                                                                \
-      (int)(str).count,                                                        \
-      (str).buf)
-
-#define dbgf(fmt, ...)                                                         \
-  printf("%s:%s:%u :: " fmt "\n", __FILE__, __func__, __LINE__, __VA_ARGS__)
 
 static void error(analyzer_t *a, pos_t pos, const char *fmt, ...) {
   sb_reset(&a->ctx->sb);

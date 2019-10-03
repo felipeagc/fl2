@@ -2,6 +2,7 @@
 
 #include "ast.h"
 #include "expr.h"
+#include "dbg.h"
 #include <assert.h>
 #include <llvm-c/Analysis.h>
 #include <llvm-c/BitWriter.h>
@@ -11,18 +12,6 @@
 #include <llvm-c/Target.h>
 #include <llvm-c/TargetMachine.h>
 #include <stdio.h>
-
-#define dbg(str)                                                               \
-  printf(                                                                      \
-      "%s:%s:%u :: '%.*s'\n",                                                  \
-      __FILE__,                                                                \
-      __func__,                                                                \
-      __LINE__,                                                                \
-      (int)(str).count,                                                        \
-      (str).buf)
-
-#define dbgf(fmt, ...)                                                         \
-  printf("%s:%s:%u :: " fmt "\n", __FILE__, __func__, __LINE__, __VA_ARGS__)
 
 typedef struct {
   LLVMModuleRef mod;

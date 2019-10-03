@@ -2,20 +2,12 @@
 
 #include "analyzer.h"
 #include "codegen_llvm.h"
+#include "dbg.h"
 #include "filesystem.h"
 #include "parser.h"
 #include "scanner.h"
 #include <assert.h>
 #include <stdio.h>
-
-#define dbg(str)                                                               \
-  printf(                                                                      \
-      "%s:%s:%u :: '%.*s'\n",                                                  \
-      __FILE__,                                                                \
-      __func__,                                                                \
-      __LINE__,                                                                \
-      (int)(str).count,                                                        \
-      (str).buf)
 
 void ctx_init(ctx_t *ctx) {
   memset(ctx, 0, sizeof(*ctx));
