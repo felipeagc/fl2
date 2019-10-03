@@ -1,28 +1,28 @@
 using import "../c.fl";
 
-Const: i32 : 123;
+Const: i64 : 123;
 
 main :: proc () {
-  a: i32 = 123;
+  a: i64 = 123;
   a = 321;
   b := &a;
   *b = 5423;
-  printf(c"a = %d\n", a);
-  printf(c"*b = %d\n", *b);
+  printf(c"a = %ld\n", a);
+  printf(c"*b = %ld\n", *b);
 
-  c: **i32 = &b;
+  c: **i64 = &b;
   **c = 9001;
-  printf(c"a = %d\n", a);
-  printf(c"*b = %d\n", *b);
-  printf(c"**c = %d\n", **c);
+  printf(c"a = %ld\n", a);
+  printf(c"*b = %ld\n", *b);
+  printf(c"**c = %ld\n", **c);
 
   a = 123123;
-  printf(c"a = %d\n", a);
-  printf(c"*b = %d\n", *b);
-  printf(c"**c = %d\n", **c);
+  printf(c"a = %ld\n", a);
+  printf(c"*b = %ld\n", *b);
+  printf(c"**c = %ld\n", **c);
 
   // Creating a pointer to a constant actually allocates
   // the constant on the stack so it can be dereferenced
   const_ptr := &Const;
-  printf(c"%d\n", *const_ptr);
+  printf(c"%ld\n", *const_ptr);
 }

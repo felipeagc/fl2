@@ -1,8 +1,8 @@
 #include "codegen_llvm.h"
 
 #include "ast.h"
-#include "expr.h"
 #include "dbg.h"
+#include "expr.h"
 #include <assert.h>
 #include <llvm-c/Analysis.h>
 #include <llvm-c/BitWriter.h>
@@ -250,6 +250,35 @@ static void codegen_const_expr(
     return codegen_const_expr(llvm, mod, operand_block, NULL, expr->expr, val);
   } break;
 
+  case EXPR_INTRIN: {
+    switch (expr->intrin.kind) {
+    case INTRIN_SIZEOF: {
+      expr_t *param = &expr->intrin.params.buf[0];
+
+      type_t *type = NULL;
+
+      assert(param->type);
+      switch (param->type->kind) {
+      case TYPE_TYPE: {
+        assert(param->as_type);
+        type = param->as_type;
+      } break;
+      default: {
+        type = param->type;
+      } break;
+      }
+
+      assert(type);
+
+      val->kind  = VALUE_CONST;
+      val->value = LLVMConstInt(
+          LLVMInt64Type(),
+          LLVMStoreSizeOfType(mod->data, llvm_type(llvm, type)),
+          false);
+    } break;
+    }
+  } break;
+
   case EXPR_PROC: {
     proc_t *proc = &expr->proc;
     if (proc->sig.flags & PROC_FLAG_NO_BODY) break;
@@ -378,6 +407,9 @@ static void codegen_expr(
 
   case EXPR_EXPR:
     return codegen_expr(llvm, mod, operand_block, NULL, expr->expr, val);
+
+  case EXPR_INTRIN:
+    return codegen_const_expr(llvm, mod, operand_block, NULL, expr, val);
 
   case EXPR_PROC:
     return codegen_const_expr(llvm, mod, operand_block, NULL, expr, val);

@@ -70,6 +70,8 @@ static bool expr_as_type(analyzer_t *a, block_t *block, expr_t *expr) {
 
   } break;
 
+  case EXPR_INTRIN: break;
+
   case EXPR_EXPR: {
     res           = expr_as_type(a, block, expr->expr);
     expr->as_type = expr->expr->as_type;
@@ -202,6 +204,16 @@ static symbol_t *symbol_check_expr(
 
   case EXPR_EXPR: {
     return symbol_check_expr(a, operation_block, NULL, expr->expr);
+  } break;
+
+  case EXPR_INTRIN: {
+    switch (expr->intrin.kind) {
+    case INTRIN_SIZEOF: {
+      For(param, expr->intrin.params) {
+        symbol_check_expr(a, operation_block, NULL, param);
+      }
+    } break;
+    }
   } break;
 
   case EXPR_ACCESS: {
@@ -473,6 +485,23 @@ static void type_check_expr(
     return;
   } break;
 
+  case EXPR_INTRIN: {
+    switch (expr->intrin.kind) {
+    case INTRIN_SIZEOF: {
+      type_t *ty = bump_alloc(&a->ctx->alloc, sizeof(type_t));
+      memset(ty, 0, sizeof(*ty));
+      ty->kind = TYPE_PRIMITIVE;
+      ty->prim = PRIM_TYPE_I64;
+
+      expr->type = ty;
+
+      For(param, expr->intrin.params) {
+        type_check_expr(a, operand_block, NULL, param, NULL);
+      }
+    } break;
+    }
+  } break;
+
   case EXPR_ACCESS: {
     block_t *expr_block = NULL;
     expr_t *inner = get_access_expr(operand_block, expr, &expr_block, NULL);
@@ -489,6 +518,15 @@ static void type_check_expr(
       type_check_expr(a, operand_block, NULL, expr->right, NULL);
 
       if (!expr->right->type) break;
+
+      if (expr->right->type->kind == TYPE_TYPE) {
+        type_t *ty = bump_alloc(&a->ctx->alloc, sizeof(type_t));
+        memset(ty, 0, sizeof(*ty));
+        expr->type = ty;
+
+        ty->kind = TYPE_TYPE;
+        break;
+      }
 
       if (expr->right->type->kind != TYPE_PTR) {
         sb_reset(&a->ctx->sb);

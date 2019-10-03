@@ -56,6 +56,8 @@ char *TOKEN_STRINGS[] = {
     [TOKEN_VOID]        = "void",
     [TOKEN_STRING_TYPE] = "string",
 
+    [TOKEN_INTRIN_SIZEOF] = "@sizeof",
+
     [TOKEN_FOR]      = "for",
     [TOKEN_BREAK]    = "break",
     [TOKEN_CONTINUE] = "continue",

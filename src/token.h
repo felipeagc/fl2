@@ -59,6 +59,8 @@ typedef enum {
   TOKEN_VOID,
   TOKEN_STRING_TYPE,
 
+  TOKEN_INTRIN_SIZEOF,
+
   // Keywords:
   TOKEN_FOR,
   TOKEN_BREAK,

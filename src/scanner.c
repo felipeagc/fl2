@@ -214,6 +214,42 @@ static void scan_identifier(scanner_t *s) {
   APPEND(s->tokens, token);
 }
 
+static void scan_intrin(scanner_t *s) {
+  sb_reset(&s->ctx->sb);
+
+  pos_t pos  = {0};
+  pos.file   = s->file;
+  pos.offset = s->offset;
+  pos.line   = s->line;
+  pos.col    = s->col;
+
+  next(s); // skip @
+
+  while (!is_at_end(s) && is_alphanum(peek(s))) {
+    sb_append_char(&s->ctx->sb, peek(s));
+    next(s);
+  }
+
+  pos.len = s->offset - pos.offset;
+
+  strbuf_t ident = sb_build(&s->ctx->sb);
+
+  token_t token = {
+      .pos = pos,
+  };
+
+  if (strbuf_cmp(ident, STR("sizeof"))) {
+    token.type = TOKEN_INTRIN_SIZEOF;
+    APPEND(s->tokens, token);
+    return;
+  } else {
+    error(s, "invalid intrinsic token");
+    return;
+  }
+
+  APPEND(s->tokens, token);
+}
+
 static void scan_string(scanner_t *s, bool c_string) {
   sb_reset(&s->ctx->sb);
 
@@ -471,6 +507,10 @@ static void scan_token(scanner_t *s) {
 
   case '"': {
     scan_string(s, false);
+  } break;
+
+  case '@': {
+    scan_intrin(s);
   } break;
 
   default: {

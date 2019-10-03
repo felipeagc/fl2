@@ -11,7 +11,7 @@ typedef struct stmt_t stmt_t;
 typedef SLICE(stmt_t) stmt_slice_t;
 
 typedef struct ast_t ast_t;
-typedef SLICE(ast_t*) ast_ptr_slice_t;
+typedef SLICE(ast_t *) ast_ptr_slice_t;
 
 typedef struct type_t type_t;
 
@@ -127,6 +127,16 @@ typedef struct binary_op_t {
   } kind;
 } binary_op_t;
 
+typedef struct intrinsic_t {
+  enum {
+    INTRIN_SIZEOF,
+  } kind;
+  union {
+    expr_slice_t params;
+    strbuf_t option;
+  };
+} intrinsic_t;
+
 typedef struct type_t {
   enum {
     TYPE_UNDEFINED,
@@ -158,6 +168,7 @@ typedef struct type_t {
 
 typedef enum expr_kind_t {
   EXPR_PRIMARY,
+  EXPR_INTRIN,
   EXPR_EXPR,
   EXPR_STRUCT,
   EXPR_PROC,
@@ -186,6 +197,7 @@ typedef struct expr_t {
     access_t access;
     proc_call_t proc_call;
     block_t block;
+    intrinsic_t intrin;
 
     struct {
       union {

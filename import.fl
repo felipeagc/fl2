@@ -2,7 +2,6 @@ entity :: import "entity.fl";
 using entity;
 
 using import "tests/c.fl";
-no :: import "no.fl";
 
 MyStruct :: struct {
 
@@ -39,6 +38,11 @@ main :: proc () {
   other :: (import "other.fl");
 
   str := c"asd";
+
+  size: i64 = @sizeof(str);
+  printf(c"size of *u8: %ld\n", size);
+  printf(c"size of i32: %ld\n", @sizeof(i32));
+  printf(c"size of i8: %ld\n", @sizeof(i8));
 
   bignum := BigConstant;
 

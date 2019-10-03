@@ -1,15 +1,15 @@
 c :: import "../c.fl";
 
-global: i32 = 321;
+global: i64 = 321;
 
 main :: proc () {
   global = 123;
 
-  c.printf(c"%d\n", global);
+  c.printf(c"%ld\n", global);
 
   nested :: proc () {
     global = 321;
-    c.printf(c"%d\n", global);
+    c.printf(c"%ld\n", global);
   }
 
   nested();
