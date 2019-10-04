@@ -250,6 +250,11 @@ static void scan_intrin(scanner_t *s) {
     token.type = TOKEN_INTRIN_SIZEOF;
     APPEND(s->tokens, token);
     return;
+  } else if (strbuf_cmp(ident, STR("file"))) {
+    token.type   = TOKEN_STRING;
+    token.string = bump_strdup(&s->ctx->alloc, s->file->abs_path);
+    APPEND(s->tokens, token);
+    return;
   } else if (strbuf_cmp(ident, STR("assert"))) {
     token.type = TOKEN_INTRIN_ASSERT;
     APPEND(s->tokens, token);

@@ -10,7 +10,6 @@ Decisions to make
 
 TODO:
 	- remove @assert
-	- add @filename
 	- add @line
 	- add @column
 	- debug information

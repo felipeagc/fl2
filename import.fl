@@ -125,6 +125,6 @@ main :: proc () {
   ch = *c"hey";
 
   {
-    puts(c"hello" " world");
+    puts(c"hello" " world: " @file);
   }
 }
