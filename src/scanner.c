@@ -283,10 +283,18 @@ static void scan_string(scanner_t *s, bool c_string) {
       next(s);
 
       switch (peek(s)) {
-      case '"': sb_append_char(&s->ctx->sb, '"'); break;
-      case 't': sb_append_char(&s->ctx->sb, '\t'); break;
+      case 'a': sb_append_char(&s->ctx->sb, '\a'); break;
+      case 'b': sb_append_char(&s->ctx->sb, '\b'); break;
+      case 'f': sb_append_char(&s->ctx->sb, '\f'); break;
       case 'n': sb_append_char(&s->ctx->sb, '\n'); break;
+      case 'r': sb_append_char(&s->ctx->sb, '\r'); break;
+      case 't': sb_append_char(&s->ctx->sb, '\t'); break;
+      case 'v': sb_append_char(&s->ctx->sb, '\v'); break;
       case '\\': sb_append_char(&s->ctx->sb, '\\'); break;
+      case '\'': sb_append_char(&s->ctx->sb, '\''); break;
+      case '"': sb_append_char(&s->ctx->sb, '"'); break;
+      case '?': sb_append_char(&s->ctx->sb, '\?'); break;
+      case '0': sb_append_char(&s->ctx->sb, '\0'); break;
       default: {
         sb_append_char(&s->ctx->sb, '\\');
         sb_append_char(&s->ctx->sb, peek(s));

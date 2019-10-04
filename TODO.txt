@@ -9,6 +9,10 @@ Decisions to make
 	- Static assert => #assert(...)
 
 TODO:
+	- remove @assert
+	- add @filename
+	- add @line
+	- add @column
 	- debug information
 	- var decl & assign cannot accept non-runtime expressions
 	- force return statements when required

@@ -125,6 +125,6 @@ main :: proc () {
   ch = *c"hey";
 
   {
-    puts(c"Hey");
+    puts(c"hello" " world");
   }
 }

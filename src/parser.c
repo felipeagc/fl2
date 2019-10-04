@@ -279,6 +279,18 @@ static bool parse_primary(parser_t *p, primary_expr_t *primary) {
 
     primary->kind   = PRIMARY_STRING;
     primary->string = tok->string;
+
+    while (peek(p)->type == TOKEN_STRING) {
+      token_t *t = next(p);
+      strbuf_t new_str;
+      new_str.count = primary->string.count + t->string.count;
+      new_str.cap   = new_str.count;
+      new_str.buf   = bump_alloc(&p->ctx->alloc, new_str.cap);
+      memcpy(new_str.buf, primary->string.buf, primary->string.count);
+      memcpy(
+          &new_str.buf[primary->string.count], t->string.buf, t->string.count);
+      primary->string = new_str;
+    }
   } break;
 
   case TOKEN_CSTRING: {
@@ -286,6 +298,23 @@ static bool parse_primary(parser_t *p, primary_expr_t *primary) {
 
     primary->kind   = PRIMARY_CSTRING;
     primary->string = tok->string;
+
+    while (peek(p)->type == TOKEN_STRING) {
+      assert(primary->string.buf[primary->string.count - 1] == '\0');
+
+      token_t *t = next(p);
+      strbuf_t new_str;
+      new_str.count = primary->string.count + t->string.count;
+      new_str.cap   = new_str.count;
+      new_str.buf   = bump_alloc(&p->ctx->alloc, new_str.cap);
+      memcpy(new_str.buf, primary->string.buf, primary->string.count - 1);
+      memcpy(
+          &new_str.buf[primary->string.count - 1],
+          t->string.buf,
+          t->string.count + 1);
+      new_str.buf[new_str.count - 1] = '\0';
+      primary->string                = new_str;
+    }
   } break;
 
   case TOKEN_I8:

@@ -889,26 +889,25 @@ error_set_t llvm_codegen(llvm_t *llvm, ast_t *ast) {
     exit(1);
   }
 
-  /* LLVMExecutionEngineRef engine; */
-  /* error = NULL; */
+  LLVMExecutionEngineRef engine;
+  error = NULL;
 
-  /* LLVMLinkInMCJIT(); */
-  /* LLVMInitializeNativeTarget(); */
-  /* LLVMInitializeNativeAsmPrinter(); */
-  /* if (LLVMCreateExecutionEngineForModule(&engine, mod.mod, &error) != 0) { */
-  /*   fprintf(stderr, "failed to create execution engine\n"); */
-  /*   abort(); */
-  /* } */
+  LLVMLinkInMCJIT();
+  LLVMInitializeNativeTarget();
+  LLVMInitializeNativeAsmPrinter();
+  if (LLVMCreateExecutionEngineForModule(&engine, mod.mod, &error) != 0) {
+    fprintf(stderr, "failed to create execution engine\n");
+    abort();
+  }
 
-  /* if (error) { */
-  /*   fprintf(stderr, "error: %s\n", error); */
-  /*   LLVMDisposeMessage(error); */
-  /*   exit(EXIT_FAILURE); */
-  /* } */
+  if (error) {
+    fprintf(stderr, "error: %s\n", error);
+    LLVMDisposeMessage(error);
+    exit(EXIT_FAILURE);
+  }
 
-  /* void (*main_func)() = (void (*)())LLVMGetFunctionAddress(engine, "main");
-   */
-  /* if (main_func) main_func(); */
+  void (*main_func)() = (void (*)())LLVMGetFunctionAddress(engine, "main");
+  if (main_func) main_func();
 
   mod_destroy(&mod);
 
