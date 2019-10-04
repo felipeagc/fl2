@@ -1,4 +1,4 @@
-printf :: proc extern (*u8, ...);
+printf :: proc "c" (*u8, ...);
 
 main :: proc () {
   printf(c"Hello: %ld\n", 123);

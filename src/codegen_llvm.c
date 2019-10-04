@@ -327,7 +327,7 @@ static void codegen_const_expr(
       val->kind  = VALUE_PROC;
       val->value = LLVMAddFunction(mod->mod, fun_name, fun_type);
 
-      if (proc->sig.flags & PROC_FLAG_EXTERN) {
+      if (proc->sig.conv == PROC_CONV_C) {
         LLVMSetLinkage(val->value, LLVMExternalLinkage);
       }
     }
@@ -665,7 +665,8 @@ pre_pass_expr(llvm_t *llvm, module_t *mod, expr_t *expr, value_t *val) {
     char *fun_name   = bump_c_str(&llvm->ctx->alloc, proc->name);
     LLVMValueRef fun = NULL;
 
-    if (proc->sig.flags & PROC_FLAG_EXTERN) {
+    if (proc->sig.conv == PROC_CONV_C) {
+      // TODO: why?
       fun = LLVMGetNamedFunction(mod->mod, fun_name);
     }
 
@@ -690,7 +691,7 @@ pre_pass_expr(llvm_t *llvm, module_t *mod, expr_t *expr, value_t *val) {
           proc->sig.flags & PROC_FLAG_VARIADIC);
       fun = LLVMAddFunction(mod->mod, fun_name, fun_type);
 
-      if (proc->sig.flags & PROC_FLAG_EXTERN) {
+      if (proc->sig.conv == PROC_CONV_C) {
         LLVMSetLinkage(fun, LLVMExternalLinkage);
       }
     }
@@ -888,25 +889,26 @@ error_set_t llvm_codegen(llvm_t *llvm, ast_t *ast) {
     exit(1);
   }
 
-  LLVMExecutionEngineRef engine;
-  error = NULL;
+  /* LLVMExecutionEngineRef engine; */
+  /* error = NULL; */
 
-  LLVMLinkInMCJIT();
-  LLVMInitializeNativeTarget();
-  LLVMInitializeNativeAsmPrinter();
-  if (LLVMCreateExecutionEngineForModule(&engine, mod.mod, &error) != 0) {
-    fprintf(stderr, "failed to create execution engine\n");
-    abort();
-  }
+  /* LLVMLinkInMCJIT(); */
+  /* LLVMInitializeNativeTarget(); */
+  /* LLVMInitializeNativeAsmPrinter(); */
+  /* if (LLVMCreateExecutionEngineForModule(&engine, mod.mod, &error) != 0) { */
+  /*   fprintf(stderr, "failed to create execution engine\n"); */
+  /*   abort(); */
+  /* } */
 
-  if (error) {
-    fprintf(stderr, "error: %s\n", error);
-    LLVMDisposeMessage(error);
-    exit(EXIT_FAILURE);
-  }
+  /* if (error) { */
+  /*   fprintf(stderr, "error: %s\n", error); */
+  /*   LLVMDisposeMessage(error); */
+  /*   exit(EXIT_FAILURE); */
+  /* } */
 
-  void (*main_func)() = (void (*)())LLVMGetFunctionAddress(engine, "main");
-  if (main_func) main_func();
+  /* void (*main_func)() = (void (*)())LLVMGetFunctionAddress(engine, "main");
+   */
+  /* if (main_func) main_func(); */
 
   mod_destroy(&mod);
 

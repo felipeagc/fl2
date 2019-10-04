@@ -352,22 +352,14 @@ static symbol_t *symbol_check_expr(
       }
     }
 
-    if ((expr->proc.sig.flags & (PROC_FLAG_EXTERN | PROC_FLAG_INLINE)) ==
-        (PROC_FLAG_EXTERN | PROC_FLAG_INLINE)) {
-      error(
-          a,
-          expr->pos,
-          "procedure cannot be extern and inline at the same time");
-      break;
-    }
-
     if ((expr->proc.sig.flags & (PROC_FLAG_NO_BODY | PROC_FLAG_INLINE)) ==
         (PROC_FLAG_NO_BODY | PROC_FLAG_INLINE)) {
       error(a, expr->pos, "inline procedures must have a body");
       break;
     }
 
-    if (expr->proc.sig.flags & PROC_FLAG_EXTERN && expr->proc.name.count > 0) {
+    if (expr->proc.sig.conv == PROC_CONV_C && expr->proc.name.count > 0) {
+      // TODO: remove this
       strbuf_t name       = expr->proc.name;
       proc_t *extern_proc = table_get(&a->ctx->extern_table, name);
       if (extern_proc) {

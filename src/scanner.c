@@ -164,10 +164,6 @@ static void scan_identifier(scanner_t *s) {
     token.type = TOKEN_BOOL;
     APPEND(s->tokens, token);
     return;
-  } else if (strbuf_cmp(ident, STR("extern"))) {
-    token.type = TOKEN_EXTERN;
-    APPEND(s->tokens, token);
-    return;
   } else if (strbuf_cmp(ident, STR("inline"))) {
     token.type = TOKEN_INLINE;
     APPEND(s->tokens, token);

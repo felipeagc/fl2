@@ -34,13 +34,18 @@ typedef SLICE(var_decl_t) var_decl_slice_t;
 
 typedef enum proc_flags_t {
   PROC_FLAG_INLINE   = 0x01,
-  PROC_FLAG_EXTERN   = 0x02,
-  PROC_FLAG_NO_BODY  = 0x04,
-  PROC_FLAG_VARIADIC = 0x08,
+  PROC_FLAG_NO_BODY  = 0x02,
+  PROC_FLAG_VARIADIC = 0x04,
 } proc_flags_t;
+
+typedef enum proc_conv_t {
+  PROC_CONV_DEFAULT = 0,
+  PROC_CONV_C,
+} proc_conv_t;
 
 typedef struct proc_signature_t {
   proc_flags_t flags;
+  proc_conv_t conv;
   var_decl_slice_t params;
   expr_slice_t return_types;
 } proc_signature_t;

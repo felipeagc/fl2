@@ -20,9 +20,7 @@ type_t *exact_types(type_t *received, type_t *expected) {
     assert(0);
   } break;
   case TYPE_PROC: {
-    if (received->proc_sig->flags & PROC_FLAG_EXTERN) {
-      if (!(expected->proc_sig->flags & PROC_FLAG_EXTERN)) return NULL;
-    }
+    if (received->proc_sig->conv != expected->proc_sig->conv) return NULL;
 
     if (received->proc_sig->flags & PROC_FLAG_INLINE) {
       if (!(expected->proc_sig->flags & PROC_FLAG_INLINE)) return NULL;
@@ -115,12 +113,16 @@ void print_type(str_builder_t *sb, type_t *type) {
   } break;
   case TYPE_PROC: {
     sb_append(sb, STR("proc* "));
-    if (type->proc_sig->flags & PROC_FLAG_EXTERN) {
-      sb_append(sb, STR("extern "));
-    }
+
     if (type->proc_sig->flags & PROC_FLAG_INLINE) {
       sb_append(sb, STR("inline "));
     }
+
+    switch (type->proc_sig->conv) {
+    case PROC_CONV_DEFAULT: break;
+    case PROC_CONV_C: sb_append(sb, STR("\"c\" ")); break;
+    }
+
     sb_append(sb, STR("("));
     for (size_t i = 0; i < type->proc_sig->params.count; i++) {
       if (i > 0) sb_append(sb, STR(", "));

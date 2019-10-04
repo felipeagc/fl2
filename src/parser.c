@@ -116,14 +116,18 @@ static bool parse_proc(parser_t *p, expr_t *expr) {
     expr->kind = EXPR_PROC_PTR;
   }
 
-  if (peek(p)->type == TOKEN_EXTERN) {
-    next(p);
-    expr->proc.sig.flags |= PROC_FLAG_EXTERN;
-  }
-
   if (peek(p)->type == TOKEN_INLINE) {
     next(p);
     expr->proc.sig.flags |= PROC_FLAG_INLINE;
+  }
+
+  if (peek(p)->type == TOKEN_STRING) {
+    token_t *tok = next(p);
+    if (strbuf_cmp(tok->string, STR("c"))) {
+      expr->proc.sig.conv = PROC_CONV_C;
+    } else {
+      error(p, tok->pos, "invalid calling convention");
+    }
   }
 
   if (!consume(p, TOKEN_LPAREN)) res = false;

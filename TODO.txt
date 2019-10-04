@@ -1,12 +1,11 @@
 Decisions to make
 - Attribute syntax => #(hello, align = 4)
-- Calling convention for proc => replace extern
 - Syntax for marking variable as uninitialized
 - Private symbols => #(private)
 - Syntax for slices => [_]i32
 - Directives
 	- Build settings => #link("libsomething.a")
-	- Static if => #if @os_linux {...}
+	- Static if => #if @option.linux {...}
 	- Static assert => #assert(...)
 
 TODO:
@@ -18,7 +17,7 @@ Scanner
 
 Parser
 - Unary exprs
-	dereference
+	cast
 	slice (asd[123..123])
 	index (a[12])
 	array type ([]Something)
