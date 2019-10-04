@@ -127,4 +127,7 @@ main :: proc () {
   {
     puts(c"hello" " world: " @file);
   }
+
+  ARR_SIZE :: 123;
+  array: [ARR_SIZE][12]i32;
 }

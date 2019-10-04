@@ -533,6 +533,34 @@ static bool parse_intrinsic(parser_t *p, expr_t *expr) {
   return res;
 }
 
+static bool parse_array_type(parser_t *p, expr_t *expr) {
+  bool res = true;
+
+  switch (peek(p)->type) {
+  case TOKEN_LBRACK: {
+    next(p);
+
+    expr->kind = EXPR_ARRAY_TYPE;
+
+    if (peek(p)->type != TOKEN_RBRACK) {
+      expr->array.size_expr = bump_alloc(&p->ctx->alloc, sizeof(expr_t));
+      memset(expr->array.size_expr, 0, sizeof(*expr->array.size_expr));
+      if (!parse_expr(p, expr->array.size_expr)) res = false;
+    }
+
+    if (!consume(p, TOKEN_RBRACK)) res = false;
+
+    expr->array.sub_expr = bump_alloc(&p->ctx->alloc, sizeof(expr_t));
+    memset(expr->array.sub_expr, 0, sizeof(*expr->array.sub_expr));
+    if (!parse_array_type(p, expr->array.sub_expr)) res = false;
+  } break;
+
+  default: return parse_intrinsic(p, expr);
+  }
+
+  return res;
+}
+
 static bool parse_block_expr(parser_t *p, expr_t *expr) {
   bool res = true;
 
@@ -557,7 +585,7 @@ static bool parse_block_expr(parser_t *p, expr_t *expr) {
   } break;
 
   default: {
-    return parse_intrinsic(p, expr);
+    return parse_array_type(p, expr);
   } break;
   }
 

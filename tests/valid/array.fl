@@ -1,0 +1,16 @@
+Alias :: i32;
+Size :: 123;
+
+main :: proc () {
+  {
+    arr: [8]i32;
+  }
+
+  {
+    arr: [Size]i32;
+  }
+
+  {
+    arr: [Size]Alias;
+  }
+}

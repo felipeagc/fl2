@@ -67,7 +67,11 @@ static LLVMTypeRef llvm_type(llvm_t *llvm, type_t *type) {
   } break;
 
   case TYPE_SLICE: assert(0);
-  case TYPE_ARRAY: assert(0);
+
+  case TYPE_ARRAY: {
+    return LLVMArrayType(llvm_type(llvm, type->subtype), type->size);
+  } break;
+
   case TYPE_PROC: {
     size_t param_count = type->proc_sig->params.count;
     LLVMTypeRef *param_types =
@@ -390,6 +394,7 @@ static void codegen_const_expr(
   } break;
 
   case EXPR_STRUCT:
+  case EXPR_ARRAY_TYPE:
   case EXPR_PROC_PTR: {
     // This isn't a runtime expression
   } break;
@@ -651,6 +656,7 @@ static void codegen_expr(
 
   case EXPR_STRUCT:
   case EXPR_IMPORT:
+  case EXPR_ARRAY_TYPE:
   case EXPR_PROC_PTR:
     return codegen_const_expr(llvm, mod, operand_block, NULL, expr, val);
   }

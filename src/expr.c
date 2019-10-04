@@ -56,6 +56,9 @@ symbol_t *get_expr_sym(expr_t *expr, scope_t *scope) {
   case EXPR_BINARY: {
   } break;
 
+  case EXPR_ARRAY_TYPE: {
+  } break;
+
   case EXPR_PROC_CALL: {
     return get_expr_sym(expr->proc_call.expr, scope);
   } break;
@@ -170,6 +173,7 @@ bool is_expr_const(expr_t *expr, scope_t *scope) {
   case EXPR_PROC:
   case EXPR_PROC_PTR:
   case EXPR_IMPORT:
+  case EXPR_ARRAY_TYPE:
   case EXPR_INTRIN: return true;
 
   case EXPR_PROC_CALL: return false;
@@ -191,6 +195,84 @@ bool is_expr_const(expr_t *expr, scope_t *scope) {
   } break;
 
   case EXPR_BLOCK: return false;
+  }
+
+  return false;
+}
+
+bool resolve_expr_int(expr_t *expr, scope_t *scope, int64_t *result) {
+  switch (expr->kind) {
+  case EXPR_PRIMARY: {
+    switch (expr->primary.kind) {
+    case PRIMARY_FLOAT:
+    case PRIMARY_BOOL:
+    case PRIMARY_NULL:
+    case PRIMARY_PRIMITIVE_TYPE:
+    case PRIMARY_STRING:
+    case PRIMARY_CSTRING: break;
+
+    case PRIMARY_INT: {
+      *result = expr->primary.i64;
+      return true;
+    } break;
+
+    case PRIMARY_IDENT: {
+      symbol_t *sym = scope_get(scope, expr->primary.string);
+      if (sym) {
+        switch (sym->kind) {
+        case SYMBOL_CONST_DECL: {
+          return resolve_expr_int(&sym->const_decl->expr, sym->scope, result);
+        } break;
+
+        default: break;
+        }
+      }
+    } break;
+    }
+
+  } break;
+
+  case EXPR_EXPR: return resolve_expr_int(expr->expr, scope, result);
+
+  case EXPR_ACCESS: {
+    symbol_t *sym = get_expr_sym(expr->access.left, scope);
+    if (sym) {
+      switch (sym->kind) {
+      case SYMBOL_CONST_DECL: {
+        expr_t *inner = inner_expr(&sym->const_decl->expr);
+
+        switch (inner->kind) {
+        case EXPR_IMPORT: {
+          return get_expr_sym(
+              expr->access.right, &inner->import.ast->block.scope);
+        } break;
+
+        default: break;
+        }
+
+      } break;
+
+      default: break;
+      }
+    }
+  } break;
+
+  case EXPR_INTRIN: {
+  } break;
+
+  case EXPR_UNARY: {
+  } break;
+
+  case EXPR_BINARY: {
+  } break;
+
+  case EXPR_ARRAY_TYPE:
+  case EXPR_PROC_CALL:
+  case EXPR_PROC:
+  case EXPR_PROC_PTR:
+  case EXPR_STRUCT:
+  case EXPR_IMPORT:
+  case EXPR_BLOCK: break;
   }
 
   return false;

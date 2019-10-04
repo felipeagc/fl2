@@ -74,6 +74,30 @@ static bool expr_as_type(analyzer_t *a, block_t *block, expr_t *expr) {
 
   case EXPR_INTRIN: break;
 
+  case EXPR_ARRAY_TYPE: {
+    assert(expr->array.size_expr); // TODO: temporary
+
+    if (!is_expr_const(expr->array.size_expr, &block->scope)) return false;
+
+    int64_t size;
+    if (!resolve_expr_int(expr->array.size_expr, &block->scope, &size))
+      return false;
+
+    if (size < 1) return false;
+
+    if (!expr_as_type(a, block, expr->array.sub_expr)) return false;
+
+    type_t *ty = bump_alloc(&a->ctx->alloc, sizeof(type_t));
+    memset(ty, 0, sizeof(*ty));
+    expr->as_type = ty;
+
+    ty->kind    = TYPE_ARRAY;
+    ty->subtype = expr->array.sub_expr->as_type;
+    ty->size    = (size_t)size;
+
+    res = true;
+  } break;
+
   case EXPR_EXPR: {
     res           = expr_as_type(a, block, expr->expr);
     expr->as_type = expr->expr->as_type;
@@ -378,6 +402,14 @@ static symbol_t *symbol_check_expr(
     }
   } break;
 
+  case EXPR_ARRAY_TYPE: {
+    if (expr->array.size_expr)
+      symbol_check_expr(a, operation_block, NULL, expr->array.size_expr);
+
+    assert(expr->array.sub_expr);
+    symbol_check_expr(a, operation_block, NULL, expr->array.sub_expr);
+  } break;
+
   case EXPR_STRUCT: {
   } break;
 
@@ -666,28 +698,28 @@ static void type_check_expr(
   } break;
 
   case EXPR_STRUCT: {
-    type_t *ty = bump_alloc(&a->ctx->alloc, sizeof(type_t));
-    memset(ty, 0, sizeof(*ty));
-    expr->type = ty;
+    static type_t ty = {.kind = TYPE_TYPE};
+    expr->type       = &ty;
+  } break;
 
-    ty->kind = TYPE_TYPE;
+  case EXPR_ARRAY_TYPE: {
+    static type_t ty = {.kind = TYPE_TYPE};
+    expr->type       = &ty;
+
+    type_check_expr(a, operand_block, NULL, expr->array.sub_expr, &ty);
+
+    static type_t size_ty = {.kind = TYPE_PRIMITIVE, .prim = PRIM_TYPE_U64};
+    type_check_expr(a, operand_block, NULL, expr->array.size_expr, &size_ty);
   } break;
 
   case EXPR_IMPORT: {
-    type_t *ty = bump_alloc(&a->ctx->alloc, sizeof(type_t));
-    memset(ty, 0, sizeof(*ty));
-    expr->type = ty;
-
-    ty->kind = TYPE_NAMESPACE;
+    static type_t ty = {.kind = TYPE_NAMESPACE};
+    expr->type       = &ty;
   } break;
 
   case EXPR_BLOCK: {
-    type_t *ty = bump_alloc(&a->ctx->alloc, sizeof(type_t));
-    memset(ty, 0, sizeof(*ty));
-    expr->type = ty;
-
-    ty->kind = TYPE_PRIMITIVE;
-    ty->prim = PRIM_TYPE_VOID;
+    static type_t ty = {.kind = TYPE_PRIMITIVE, .prim = PRIM_TYPE_VOID};
+    expr->type       = &ty;
   } break;
   }
 
