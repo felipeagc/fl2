@@ -47,37 +47,20 @@ symbol_t *get_expr_sym(expr_t *expr, scope_t *scope) {
     }
   } break;
 
-  case EXPR_INTRIN: {
-  } break;
-
-  case EXPR_UNARY: {
-  } break;
-
-  case EXPR_BINARY: {
-  } break;
-
-  case EXPR_ARRAY_TYPE: {
-  } break;
-
-  case EXPR_SUBSCRIPT: {
-  } break;
-
   case EXPR_PROC_CALL: {
     return get_expr_sym(expr->proc_call.expr, scope);
   } break;
 
-  case EXPR_PROC: {
-  } break;
-
-  case EXPR_PROC_PTR: {
-  } break;
-
-  case EXPR_STRUCT: {
-  } break;
-
-  case EXPR_IMPORT: {
-  } break;
-
+  case EXPR_INTRIN:
+  case EXPR_UNARY:
+  case EXPR_BINARY:
+  case EXPR_ARRAY_TYPE:
+  case EXPR_ARRAY_LITERAL:
+  case EXPR_SUBSCRIPT:
+  case EXPR_PROC:
+  case EXPR_PROC_PTR:
+  case EXPR_STRUCT:
+  case EXPR_IMPORT:
   case EXPR_BLOCK: {
   } break;
   }
@@ -175,6 +158,13 @@ bool is_expr_const(expr_t *expr, scope_t *scope) {
   case EXPR_SUBSCRIPT: {
     return is_expr_const(expr->left, scope) &&
            is_expr_const(expr->right, scope);
+  } break;
+
+  case EXPR_ARRAY_LITERAL: {
+    For(elem, expr->array.elems) {
+      if (!is_expr_const(elem, scope)) return false;
+    }
+    return true;
   } break;
 
   case EXPR_STRUCT:
@@ -280,6 +270,7 @@ bool resolve_expr_int(expr_t *expr, scope_t *scope, int64_t *result) {
   } break;
 
   case EXPR_ARRAY_TYPE:
+  case EXPR_ARRAY_LITERAL:
   case EXPR_PROC_CALL:
   case EXPR_PROC:
   case EXPR_PROC_PTR:

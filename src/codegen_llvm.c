@@ -397,6 +397,10 @@ static void codegen_const_expr(
     codegen_stmts(llvm, mod, &expr->import.ast->block);
   } break;
 
+  case EXPR_ARRAY_LITERAL: {
+    // TODO
+  } break;
+
   case EXPR_STRUCT:
   case EXPR_ARRAY_TYPE:
   case EXPR_PROC_PTR: {
@@ -652,6 +656,27 @@ static void codegen_expr(
 
   case EXPR_BINARY: {
     // TODO
+  } break;
+
+  case EXPR_ARRAY_LITERAL: {
+    val->kind  = VALUE_LOCAL_VAR;
+    val->value = LLVMBuildAlloca(mod->builder, llvm_type(llvm, expr->type), "");
+    for (size_t i = 0; i < expr->array.elems.count; i++) {
+      expr_t *elem = &expr->array.elems.buf[i];
+
+      LLVMValueRef indices[2] = {
+          LLVMConstInt(LLVMInt32Type(), 0, false),
+          LLVMConstInt(LLVMInt32Type(), i, false),
+      };
+
+      value_t elem_value;
+      memset(&elem_value, 0, sizeof(elem_value));
+      codegen_expr(llvm, mod, operand_block, NULL, elem, &elem_value);
+
+      LLVMValueRef elem_ptr =
+          LLVMBuildGEP(mod->builder, val->value, indices, 2, "");
+      LLVMBuildStore(mod->builder, load_val(mod, &elem_value), elem_ptr);
+    }
   } break;
 
   case EXPR_SUBSCRIPT: {

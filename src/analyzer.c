@@ -98,6 +98,8 @@ static bool expr_as_type(analyzer_t *a, block_t *block, expr_t *expr) {
     res = true;
   } break;
 
+  case EXPR_ARRAY_LITERAL: break;
+
   case EXPR_EXPR: {
     res           = expr_as_type(a, block, expr->expr);
     expr->as_type = expr->expr->as_type;
@@ -411,11 +413,74 @@ static symbol_t *symbol_check_expr(
   } break;
 
   case EXPR_ARRAY_TYPE: {
-    if (expr->array.size_expr)
+    if (expr->array.size_expr) {
+      if (!is_expr_const(expr->array.size_expr, &operand_block->scope)) {
+        error(a, expr->array.size_expr->pos, "array size must be constant");
+        break;
+      }
+
+      int64_t size;
+      if (!resolve_expr_int(
+              expr->array.size_expr, &operand_block->scope, &size)) {
+        error(
+            a,
+            expr->array.size_expr->pos,
+            "array size must resolve to an integer");
+      } else {
+        if (size <= 0) {
+          error(
+              a,
+              expr->array.size_expr->pos,
+              "array size must be greater than 0");
+        }
+      }
+
       symbol_check_expr(a, operation_block, NULL, expr->array.size_expr);
+    }
 
     assert(expr->array.sub_expr);
     symbol_check_expr(a, operation_block, NULL, expr->array.sub_expr);
+  } break;
+
+  case EXPR_ARRAY_LITERAL: {
+    if (expr->array.size_expr) {
+      if (!is_expr_const(expr->array.size_expr, &operand_block->scope)) {
+        error(a, expr->array.size_expr->pos, "array size must be constant");
+        break;
+      }
+
+      int64_t size;
+      if (!resolve_expr_int(
+              expr->array.size_expr, &operand_block->scope, &size)) {
+        error(
+            a,
+            expr->array.size_expr->pos,
+            "array size must resolve to an integer");
+        break;
+      } else {
+        if (size <= 0) {
+          error(
+              a,
+              expr->array.size_expr->pos,
+              "array size must be greater than 0");
+          break;
+        }
+      }
+
+      if (expr->array.elems.count > (size_t)size) {
+        error(a, expr->pos, "got more elements than the array can handle");
+        break;
+      }
+
+      symbol_check_expr(a, operation_block, NULL, expr->array.size_expr);
+    }
+
+    assert(expr->array.sub_expr);
+    symbol_check_expr(a, operation_block, NULL, expr->array.sub_expr);
+
+    For(elem, expr->array.elems) {
+      symbol_check_expr(a, operation_block, NULL, elem);
+    }
   } break;
 
   case EXPR_STRUCT: {
@@ -736,8 +801,33 @@ static void type_check_expr(
 
     type_check_expr(a, operand_block, NULL, expr->array.sub_expr, &ty);
 
-    static type_t size_ty = {.kind = TYPE_PRIMITIVE, .prim = PRIM_TYPE_U64};
-    type_check_expr(a, operand_block, NULL, expr->array.size_expr, &size_ty);
+    type_check_expr(a, operand_block, NULL, expr->array.size_expr, NULL);
+  } break;
+
+  case EXPR_ARRAY_LITERAL: {
+    static type_t ty_ty = {.kind = TYPE_TYPE};
+    type_check_expr(a, operand_block, NULL, expr->array.sub_expr, &ty_ty);
+    if (!expr->array.sub_expr->as_type) break;
+
+    type_check_expr(a, operand_block, NULL, expr->array.size_expr, NULL);
+
+    For(elem, expr->array.elems) {
+      type_check_expr(
+          a, operand_block, NULL, elem, expr->array.sub_expr->as_type);
+    }
+
+    int64_t size;
+    if (!resolve_expr_int(expr->array.size_expr, &operand_block->scope, &size))
+      break;
+    assert(size > 0);
+
+    type_t *ty = bump_alloc(&a->ctx->alloc, sizeof(type_t));
+    memset(ty, 0, sizeof(*ty));
+    expr->type = ty;
+
+    ty->kind    = TYPE_ARRAY;
+    ty->subtype = expr->array.sub_expr->as_type;
+    ty->size    = (size_t)size;
   } break;
 
   case EXPR_IMPORT: {

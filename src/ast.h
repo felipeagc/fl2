@@ -155,11 +155,6 @@ typedef struct intrinsic_t {
   };
 } intrinsic_t;
 
-typedef struct array_type_t {
-  expr_t *sub_expr;
-  expr_t *size_expr;
-} array_type_t;
-
 typedef struct type_t {
   enum {
     TYPE_UNDEFINED,
@@ -200,6 +195,7 @@ typedef enum expr_kind_t {
   EXPR_ACCESS,
   EXPR_PROC_CALL,
   EXPR_ARRAY_TYPE,
+  EXPR_ARRAY_LITERAL,
   EXPR_SUBSCRIPT,
   EXPR_UNARY,
   EXPR_BINARY,
@@ -223,7 +219,11 @@ typedef struct expr_t {
     proc_call_t proc_call;
     block_t block;
     intrinsic_t intrin;
-    array_type_t array;
+    struct {
+      expr_t *sub_expr;
+      expr_t *size_expr;
+      expr_slice_t elems;
+    } array;
 
     struct {
       union {

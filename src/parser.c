@@ -561,10 +561,42 @@ static bool parse_array_type(parser_t *p, expr_t *expr) {
   return res;
 }
 
+static bool parse_array_literal(parser_t *p, expr_t *expr) {
+  bool res = true;
+
+  if (parse_array_type(p, expr)) {
+    if (expr->kind == EXPR_ARRAY_TYPE) {
+      if (peek(p)->type == TOKEN_LCURLY) {
+        next(p);
+        expr->kind = EXPR_ARRAY_LITERAL;
+
+        while (peek(p)->type != TOKEN_RCURLY) {
+          expr_t elem;
+          memset(&elem, 0, sizeof(elem));
+          if (!parse_expr(p, &elem))
+            res = false;
+          else
+            APPEND(expr->array.elems, elem);
+
+          if (peek(p)->type != TOKEN_RCURLY) {
+            if (!consume(p, TOKEN_COMMA)) res = false;
+          }
+        }
+
+        if (!consume(p, TOKEN_RCURLY)) res = false;
+      }
+    }
+  } else {
+    res = false;
+  }
+
+  return res;
+}
+
 static bool parse_subscript_expr(parser_t *p, expr_t *expr) {
   bool res = true;
 
-  if (!parse_array_type(p, expr)) res = false;
+  if (!parse_array_literal(p, expr)) res = false;
 
   while (peek(p)->type == TOKEN_LBRACK) {
     next(p);
