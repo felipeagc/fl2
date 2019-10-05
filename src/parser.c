@@ -561,6 +561,32 @@ static bool parse_array_type(parser_t *p, expr_t *expr) {
   return res;
 }
 
+static bool parse_subscript_expr(parser_t *p, expr_t *expr) {
+  bool res = true;
+
+  if (!parse_array_type(p, expr)) res = false;
+
+  while (peek(p)->type == TOKEN_LBRACK) {
+    next(p);
+
+    expr_t *left = bump_alloc(&p->ctx->alloc, sizeof(expr_t));
+    *left        = *expr;
+
+    expr->kind = EXPR_SUBSCRIPT;
+    expr->left = left;
+
+    expr_t *right = bump_alloc(&p->ctx->alloc, sizeof(expr_t));
+    memset(right, 0, sizeof(*right));
+    if (!parse_expr(p, right)) res = false;
+
+    expr->right = right;
+
+    if (!consume(p, TOKEN_RBRACK)) res = false;
+  }
+
+  return res;
+}
+
 static bool parse_block_expr(parser_t *p, expr_t *expr) {
   bool res = true;
 
@@ -585,7 +611,7 @@ static bool parse_block_expr(parser_t *p, expr_t *expr) {
   } break;
 
   default: {
-    return parse_array_type(p, expr);
+    return parse_subscript_expr(p, expr);
   } break;
   }
 

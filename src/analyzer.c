@@ -178,6 +178,9 @@ static bool expr_as_type(analyzer_t *a, block_t *block, expr_t *expr) {
 
   case EXPR_BLOCK: {
   } break;
+
+  case EXPR_SUBSCRIPT: {
+  } break;
   }
 
   return res;
@@ -259,6 +262,11 @@ static symbol_t *symbol_check_expr(
   } break;
 
   case EXPR_BINARY: {
+    symbol_check_expr(a, operand_block, NULL, expr->left);
+    symbol_check_expr(a, operand_block, NULL, expr->right);
+  } break;
+
+  case EXPR_SUBSCRIPT: {
     symbol_check_expr(a, operand_block, NULL, expr->left);
     symbol_check_expr(a, operand_block, NULL, expr->right);
   } break;
@@ -657,6 +665,26 @@ static void type_check_expr(
 
   case EXPR_BINARY: {
     // TODO
+  } break;
+
+  case EXPR_SUBSCRIPT: {
+    type_check_expr(a, operand_block, NULL, expr->left, NULL);
+    if (expr->left->type->kind != TYPE_ARRAY) {
+      error(a, expr->left->pos, "can't index a non array type");
+      break;
+    }
+
+    type_check_expr(a, operand_block, NULL, expr->right, NULL);
+    if (!(expr->right->type->kind == TYPE_PRIMITIVE &&
+          expr->right->type->prim > PRIM_TYPE_INT_BEGIN &&
+          expr->right->type->prim < PRIM_TYPE_INT_END)) {
+      error(a, expr->right->pos, "can only use integers as indices");
+      break;
+    }
+
+    assert(expr->left->type->kind == TYPE_ARRAY);
+    assert(expr->left->type->subtype);
+    expr->type = expr->left->type->subtype;
   } break;
 
   case EXPR_PROC_CALL: {

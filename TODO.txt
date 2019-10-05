@@ -22,8 +22,6 @@ Parser
 - Unary exprs
 	cast
 	slice (asd[123..123])
-	index (a[12])
-	array type ([]Something)
 
 - Binary exprs
 	addition / subtraction

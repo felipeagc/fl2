@@ -1,3 +1,5 @@
+using import "../c.fl";
+
 Alias :: i32;
 Size :: 123;
 
@@ -12,5 +14,18 @@ main :: proc () {
 
   {
     arr: [Size]Alias;
+  }
+  
+  {
+    ARR_SIZE :: 123;
+    array: [ARR_SIZE][12]i32;
+    array[0][0] = 123;
+    array[1][0] = 321;
+
+    index := 8;
+
+    printf(c"%d\n", array[0][0]);
+    printf(c"%d\n", array[1][0]);
+    printf(c"%d\n", array[index][0]);
   }
 }

@@ -386,6 +386,10 @@ static void codegen_const_expr(
     // TODO
   } break;
 
+  case EXPR_SUBSCRIPT: {
+    // TODO
+  } break;
+
   case EXPR_BLOCK: {
   } break;
 
@@ -648,6 +652,26 @@ static void codegen_expr(
 
   case EXPR_BINARY: {
     // TODO
+  } break;
+
+  case EXPR_SUBSCRIPT: {
+    value_t left_val;
+    memset(&left_val, 0, sizeof(left_val));
+    codegen_expr(llvm, mod, operand_block, NULL, expr->left, &left_val);
+    assert(left_val.value);
+
+    value_t right_val;
+    memset(&right_val, 0, sizeof(right_val));
+    codegen_expr(llvm, mod, operand_block, NULL, expr->right, &right_val);
+    assert(right_val.value);
+
+    LLVMValueRef indices[2] = {
+        LLVMConstInt(LLVMInt32Type(), 0, false),
+        load_val(mod, &right_val),
+    };
+
+    val->kind  = VALUE_LOCAL_VAR;
+    val->value = LLVMBuildGEP(mod->builder, left_val.value, indices, 2, "");
   } break;
 
   case EXPR_BLOCK: {

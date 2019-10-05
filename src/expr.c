@@ -59,6 +59,9 @@ symbol_t *get_expr_sym(expr_t *expr, scope_t *scope) {
   case EXPR_ARRAY_TYPE: {
   } break;
 
+  case EXPR_SUBSCRIPT: {
+  } break;
+
   case EXPR_PROC_CALL: {
     return get_expr_sym(expr->proc_call.expr, scope);
   } break;
@@ -169,6 +172,11 @@ bool is_expr_const(expr_t *expr, scope_t *scope) {
     }
   } break;
 
+  case EXPR_SUBSCRIPT: {
+    return is_expr_const(expr->left, scope) &&
+           is_expr_const(expr->right, scope);
+  } break;
+
   case EXPR_STRUCT:
   case EXPR_PROC:
   case EXPR_PROC_PTR:
@@ -255,6 +263,11 @@ bool resolve_expr_int(expr_t *expr, scope_t *scope, int64_t *result) {
       default: break;
       }
     }
+  } break;
+
+  case EXPR_SUBSCRIPT: {
+    // TODO
+    return false;
   } break;
 
   case EXPR_INTRIN: {
