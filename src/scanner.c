@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-static void error(scanner_t *s, const char *fmt, ...) {
+static void error(scanner_t *s, pos_t pos, const char *fmt, ...) {
   sb_reset(&s->ctx->sb);
 
   va_list vl;
@@ -12,14 +12,7 @@ static void error(scanner_t *s, const char *fmt, ...) {
   va_end(vl);
 
   error_t err = {
-      .pos =
-          (pos_t){
-              .file   = s->file,
-              .offset = s->offset,
-              .len    = 1,
-              .line   = s->line,
-              .col    = s->col,
-          },
+      .pos = pos,
       .msg = bump_strdup(&s->ctx->alloc, sb_build(&s->ctx->sb)),
   };
 
@@ -250,17 +243,12 @@ static void scan_intrin(scanner_t *s) {
     token.type = TOKEN_INTRIN_SIZEOF;
     APPEND(s->tokens, token);
     return;
-  } else if (strbuf_cmp(ident, STR("file"))) {
-    token.type   = TOKEN_STRING;
-    token.string = bump_strdup(&s->ctx->alloc, s->file->abs_path);
-    APPEND(s->tokens, token);
-    return;
   } else if (strbuf_cmp(ident, STR("assert"))) {
     token.type = TOKEN_INTRIN_ASSERT;
     APPEND(s->tokens, token);
     return;
   } else {
-    error(s, "invalid intrinsic token");
+    error(s, token.pos, "invalid intrinsic token");
     return;
   }
 
@@ -561,7 +549,17 @@ static void scan_token(scanner_t *s) {
       break;
     }
 
-    error(s, "unexpected character: '%c'", peek(s));
+    error(
+        s,
+        (pos_t){
+            .file   = s->file,
+            .offset = s->offset,
+            .len    = 1,
+            .line   = s->line,
+            .col    = s->col,
+        },
+        "unexpected character: '%c'",
+        peek(s));
 
     next(s);
   } break;

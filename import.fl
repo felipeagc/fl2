@@ -125,7 +125,7 @@ main :: proc () {
   ch = *c"hey";
 
   {
-    puts(c"hello" " world: " @file);
+    puts(c"hello" " world");
   }
 
   ARR_SIZE :: 123;

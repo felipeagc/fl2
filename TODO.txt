@@ -12,6 +12,9 @@ TODO:
 	- remove @assert
 	- add @line
 	- add @column
+	- macros
+	- slices
+	- structs
 	- debug information
 	- var decl & assign cannot accept non-runtime expressions
 	- force return statements when required

@@ -642,6 +642,7 @@ static void type_check_expr(
         type_check_expr(a, operand_block, NULL, param, NULL);
       }
     } break;
+
     case INTRIN_ASSERT: {
       static type_t void_type;
       void_type.kind = TYPE_PRIMITIVE;
