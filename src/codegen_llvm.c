@@ -661,8 +661,8 @@ static void codegen_expr(
   case EXPR_ARRAY_LITERAL: {
     val->kind  = VALUE_LOCAL_VAR;
     val->value = LLVMBuildAlloca(mod->builder, llvm_type(llvm, expr->type), "");
-    for (size_t i = 0; i < expr->array.elems.count; i++) {
-      expr_t *elem = &expr->array.elems.buf[i];
+    for (size_t i = 0; i < expr->array_lit.elems.count; i++) {
+      expr_t *elem = &expr->array_lit.elems.buf[i];
 
       LLVMValueRef indices[2] = {
           LLVMConstInt(LLVMInt32Type(), 0, false),
@@ -936,7 +936,7 @@ error_set_t llvm_codegen(llvm_t *llvm, ast_t *ast) {
 
   codegen_block(llvm, &mod, &ast->block);
 
-  /* printf("%s\n", LLVMPrintModuleToString(mod.mod)); */
+  printf("%s\n", LLVMPrintModuleToString(mod.mod));
 
   char *error = NULL;
   if (LLVMVerifyModule(mod.mod, LLVMReturnStatusAction, &error)) {

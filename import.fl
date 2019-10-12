@@ -135,4 +135,7 @@ main :: proc () {
   printf(c"%d\n", array[0][0]);
   printf(c"%d\n", array[1][0]);
   printf(c"%d\n", array[2][0]);
+
+  arr := []i32{ 1, 2, 3 };
+  printf(c"%d\n", arr[1]);
 }

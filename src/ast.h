@@ -222,8 +222,11 @@ typedef struct expr_t {
     struct {
       expr_t *sub_expr;
       expr_t *size_expr;
-      expr_slice_t elems;
     } array;
+    struct {
+      expr_t *type_expr;
+      expr_slice_t elems;
+    } array_lit;
 
     struct {
       union {

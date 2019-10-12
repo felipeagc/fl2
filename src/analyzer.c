@@ -72,18 +72,13 @@ static bool expr_as_type(analyzer_t *a, block_t *block, expr_t *expr) {
 
   } break;
 
-  case EXPR_INTRIN: break;
-
   case EXPR_ARRAY_TYPE: {
-    assert(expr->array.size_expr); // TODO: temporary
-
-    if (!is_expr_const(expr->array.size_expr, &block->scope)) return false;
-
-    int64_t size;
-    if (!resolve_expr_int(expr->array.size_expr, &block->scope, &size))
-      return false;
-
-    if (size < 1) return false;
+    int64_t size = 0;
+    if (expr->array.size_expr) {
+      if (!is_expr_const(expr->array.size_expr, &block->scope)) return false;
+      if (!resolve_expr_int(expr->array.size_expr, &block->scope, &size))
+        return false;
+    }
 
     if (!expr_as_type(a, block, expr->array.sub_expr)) return false;
 
@@ -97,8 +92,6 @@ static bool expr_as_type(analyzer_t *a, block_t *block, expr_t *expr) {
 
     res = true;
   } break;
-
-  case EXPR_ARRAY_LITERAL: break;
 
   case EXPR_EXPR: {
     res           = expr_as_type(a, block, expr->expr);
@@ -135,16 +128,6 @@ static bool expr_as_type(analyzer_t *a, block_t *block, expr_t *expr) {
     }
   } break;
 
-  case EXPR_BINARY: {
-    // TODO
-  } break;
-
-  case EXPR_PROC_CALL: {
-  } break;
-
-  case EXPR_PROC: {
-  } break;
-
   case EXPR_PROC_PTR: {
     res = true;
 
@@ -175,14 +158,14 @@ static bool expr_as_type(analyzer_t *a, block_t *block, expr_t *expr) {
     res           = true;
   } break;
 
-  case EXPR_IMPORT: {
-  } break;
-
-  case EXPR_BLOCK: {
-  } break;
-
-  case EXPR_SUBSCRIPT: {
-  } break;
+  case EXPR_ARRAY_LITERAL: break;
+  case EXPR_BINARY: break;
+  case EXPR_PROC_CALL: break;
+  case EXPR_PROC: break;
+  case EXPR_IMPORT: break;
+  case EXPR_BLOCK: break;
+  case EXPR_SUBSCRIPT: break;
+  case EXPR_INTRIN: break;
   }
 
   return res;
@@ -443,42 +426,10 @@ static symbol_t *symbol_check_expr(
   } break;
 
   case EXPR_ARRAY_LITERAL: {
-    if (expr->array.size_expr) {
-      if (!is_expr_const(expr->array.size_expr, &operand_block->scope)) {
-        error(a, expr->array.size_expr->pos, "array size must be constant");
-        break;
-      }
+    assert(expr->array_lit.type_expr);
+    symbol_check_expr(a, operation_block, NULL, expr->array_lit.type_expr);
 
-      int64_t size;
-      if (!resolve_expr_int(
-              expr->array.size_expr, &operand_block->scope, &size)) {
-        error(
-            a,
-            expr->array.size_expr->pos,
-            "array size must resolve to an integer");
-        break;
-      } else {
-        if (size <= 0) {
-          error(
-              a,
-              expr->array.size_expr->pos,
-              "array size must be greater than 0");
-          break;
-        }
-      }
-
-      if (expr->array.elems.count > (size_t)size) {
-        error(a, expr->pos, "got more elements than the array can handle");
-        break;
-      }
-
-      symbol_check_expr(a, operation_block, NULL, expr->array.size_expr);
-    }
-
-    assert(expr->array.sub_expr);
-    symbol_check_expr(a, operation_block, NULL, expr->array.sub_expr);
-
-    For(elem, expr->array.elems) {
+    For(elem, expr->array_lit.elems) {
       symbol_check_expr(a, operation_block, NULL, elem);
     }
   } break;
@@ -802,33 +753,52 @@ static void type_check_expr(
 
     type_check_expr(a, operand_block, NULL, expr->array.sub_expr, &ty);
 
-    type_check_expr(a, operand_block, NULL, expr->array.size_expr, NULL);
+    if (expr->array.size_expr)
+      type_check_expr(a, operand_block, NULL, expr->array.size_expr, NULL);
   } break;
 
   case EXPR_ARRAY_LITERAL: {
     static type_t ty_ty = {.kind = TYPE_TYPE};
-    type_check_expr(a, operand_block, NULL, expr->array.sub_expr, &ty_ty);
-    if (!expr->array.sub_expr->as_type) break;
+    type_check_expr(a, operand_block, NULL, expr->array_lit.type_expr, &ty_ty);
+    if (!expr->array_lit.type_expr->as_type) break;
 
-    type_check_expr(a, operand_block, NULL, expr->array.size_expr, NULL);
+    assert(expr->array_lit.type_expr->as_type->kind == TYPE_ARRAY);
 
-    For(elem, expr->array.elems) {
-      type_check_expr(
-          a, operand_block, NULL, elem, expr->array.sub_expr->as_type);
+    // Propagate the inferred array sizes to the array types
+    expr_slice_t *elems = &expr->array_lit.elems;
+    type_t *sub         = expr->array_lit.type_expr->as_type;
+    while (sub->kind == TYPE_ARRAY || sub->kind == TYPE_PTR ||
+           sub->kind == TYPE_SLICE) {
+      if (sub->kind == TYPE_ARRAY) {
+        if (elems) {
+          if (sub->size == 0) sub->size = elems->count;
+          if (elems->count > 0) {
+            expr_t *inner_elem = inner_expr(&elems->buf[0]);
+            if (inner_elem->kind == EXPR_ARRAY_LITERAL) {
+              elems = &inner_elem->array_lit.elems;
+            }
+          } else {
+            elems = NULL;
+          }
+        }
+      }
+
+      sub = sub->subtype;
     }
-
-    int64_t size;
-    if (!resolve_expr_int(expr->array.size_expr, &operand_block->scope, &size))
-      break;
-    assert(size > 0);
 
     type_t *ty = bump_alloc(&a->ctx->alloc, sizeof(type_t));
     memset(ty, 0, sizeof(*ty));
     expr->type = ty;
+    *ty        = *expr->array_lit.type_expr->as_type;
 
-    ty->kind    = TYPE_ARRAY;
-    ty->subtype = expr->array.sub_expr->as_type;
-    ty->size    = (size_t)size;
+    For(elem, expr->array_lit.elems) {
+      type_check_expr(
+          a,
+          operand_block,
+          NULL,
+          elem,
+          expr->array_lit.type_expr->as_type->subtype);
+    }
   } break;
 
   case EXPR_IMPORT: {

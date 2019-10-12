@@ -161,7 +161,7 @@ bool is_expr_const(expr_t *expr, scope_t *scope) {
   } break;
 
   case EXPR_ARRAY_LITERAL: {
-    For(elem, expr->array.elems) {
+    For(elem, expr->array_lit.elems) {
       if (!is_expr_const(elem, scope)) return false;
     }
     return true;

@@ -563,31 +563,35 @@ static bool parse_array_type(parser_t *p, expr_t *expr) {
 
 static bool parse_array_literal(parser_t *p, expr_t *expr) {
   bool res = true;
+  if (!parse_array_type(p, expr)) return false;
 
-  if (parse_array_type(p, expr)) {
-    if (expr->kind == EXPR_ARRAY_TYPE) {
-      if (peek(p)->type == TOKEN_LCURLY) {
-        next(p);
-        expr->kind = EXPR_ARRAY_LITERAL;
+  if (expr->kind == EXPR_ARRAY_TYPE) {
+    if (peek(p)->type == TOKEN_LCURLY) {
+      expr_t *type_expr  = bump_alloc(&p->ctx->alloc, sizeof(expr_t));
+      *type_expr         = *expr;
+      type_expr->pos.len = peek(p)->pos.offset - type_expr->pos.offset;
 
-        while (peek(p)->type != TOKEN_RCURLY) {
-          expr_t elem;
-          memset(&elem, 0, sizeof(elem));
-          if (!parse_expr(p, &elem))
-            res = false;
-          else
-            APPEND(expr->array.elems, elem);
+      next(p);
 
-          if (peek(p)->type != TOKEN_RCURLY) {
-            if (!consume(p, TOKEN_COMMA)) res = false;
-          }
+      expr->kind                = EXPR_ARRAY_LITERAL;
+      memset(&expr->array_lit, 0, sizeof(expr->array_lit));
+      expr->array_lit.type_expr = type_expr;
+
+      while (peek(p)->type != TOKEN_RCURLY) {
+        expr_t elem;
+        memset(&elem, 0, sizeof(elem));
+        if (!parse_expr(p, &elem))
+          res = false;
+        else
+          APPEND(expr->array_lit.elems, elem);
+
+        if (peek(p)->type != TOKEN_RCURLY) {
+          if (!consume(p, TOKEN_COMMA)) res = false;
         }
-
-        if (!consume(p, TOKEN_RCURLY)) res = false;
       }
+
+      if (!consume(p, TOKEN_RCURLY)) res = false;
     }
-  } else {
-    res = false;
   }
 
   return res;
@@ -599,10 +603,11 @@ static bool parse_subscript_expr(parser_t *p, expr_t *expr) {
   if (!parse_array_literal(p, expr)) res = false;
 
   while (peek(p)->type == TOKEN_LBRACK) {
-    next(p);
+    expr_t *left  = bump_alloc(&p->ctx->alloc, sizeof(expr_t));
+    *left         = *expr;
+    left->pos.len = peek(p)->pos.offset - left->pos.offset;
 
-    expr_t *left = bump_alloc(&p->ctx->alloc, sizeof(expr_t));
-    *left        = *expr;
+    next(p);
 
     expr->kind = EXPR_SUBSCRIPT;
     expr->left = left;
