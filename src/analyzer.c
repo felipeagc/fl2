@@ -28,7 +28,8 @@ static void error(analyzer_t *a, pos_t pos, const char *fmt, ...) {
 static void analyze_block_unordered(analyzer_t *a, block_t *block);
 static void analyze_block_ordered(analyzer_t *a, block_t *block);
 
-static bool expr_as_type(analyzer_t *a, block_t *block, expr_t *expr) {
+static bool
+expr_as_type(analyzer_t *a, block_t *block, expr_t *expr, bool accept_invalid) {
   bool res = false;
   if (expr->as_type) return true;
 
@@ -56,7 +57,7 @@ static bool expr_as_type(analyzer_t *a, block_t *block, expr_t *expr) {
       if (sym) {
         switch (sym->kind) {
         case SYMBOL_CONST_DECL: {
-          res = expr_as_type(a, block, &sym->const_decl->expr);
+          res = expr_as_type(a, block, &sym->const_decl->expr, accept_invalid);
           if (res) {
             expr->as_type                       = sym->const_decl->expr.as_type;
             sym->const_decl->expr.as_type->name = sym->const_decl->name;
@@ -73,28 +74,36 @@ static bool expr_as_type(analyzer_t *a, block_t *block, expr_t *expr) {
   } break;
 
   case EXPR_ARRAY_TYPE: {
-    int64_t size = 0;
-    if (expr->array.size_expr) {
-      if (!is_expr_const(expr->array.size_expr, &block->scope)) return false;
-      if (!resolve_expr_int(expr->array.size_expr, &block->scope, &size))
-        return false;
+    if (!expr_as_type(a, block, expr->array.sub_expr, accept_invalid))
+      return false;
+
+    if (expr->array.size_expr || (!expr->array.size_expr && accept_invalid)) {
+      int64_t size = 0;
+      if (expr->array.size_expr) {
+        if (!is_expr_const(expr->array.size_expr, &block->scope)) return false;
+        if (!resolve_expr_int(expr->array.size_expr, &block->scope, &size))
+          return false;
+
+        if (size == 0) return false;
+      }
+
+      type_t *ty = bump_alloc(&a->ctx->alloc, sizeof(type_t));
+      memset(ty, 0, sizeof(*ty));
+
+      ty->kind    = TYPE_ARRAY;
+      ty->subtype = expr->array.sub_expr->as_type;
+      ty->size    = (size_t)size;
+
+      expr->as_type = ty;
+    } else {
+      return false;
     }
-
-    if (!expr_as_type(a, block, expr->array.sub_expr)) return false;
-
-    type_t *ty = bump_alloc(&a->ctx->alloc, sizeof(type_t));
-    memset(ty, 0, sizeof(*ty));
-    expr->as_type = ty;
-
-    ty->kind    = TYPE_ARRAY;
-    ty->subtype = expr->array.sub_expr->as_type;
-    ty->size    = (size_t)size;
 
     res = true;
   } break;
 
   case EXPR_EXPR: {
-    res           = expr_as_type(a, block, expr->expr);
+    res           = expr_as_type(a, block, expr->expr, accept_invalid);
     expr->as_type = expr->expr->as_type;
     return res;
   } break;
@@ -104,7 +113,7 @@ static bool expr_as_type(analyzer_t *a, block_t *block, expr_t *expr) {
     expr_t *inner       = get_access_expr(block, expr, &expr_block, NULL);
 
     if (inner) {
-      res           = expr_as_type(a, expr_block, inner);
+      res           = expr_as_type(a, expr_block, inner, accept_invalid);
       expr->as_type = inner->as_type;
     }
   } break;
@@ -120,7 +129,7 @@ static bool expr_as_type(analyzer_t *a, block_t *block, expr_t *expr) {
 
       ty->kind = TYPE_PTR;
 
-      res |= expr_as_type(a, block, expr->right);
+      res |= expr_as_type(a, block, expr->right, accept_invalid);
       if (res) ty->subtype = expr->right->as_type;
     } break;
 
@@ -132,12 +141,12 @@ static bool expr_as_type(analyzer_t *a, block_t *block, expr_t *expr) {
     res = true;
 
     For(param, expr->proc.sig.params) {
-      res |= expr_as_type(a, block, &param->type_expr);
+      res |= expr_as_type(a, block, &param->type_expr, accept_invalid);
       param->type = param->type_expr.as_type;
     }
 
     For(return_type, expr->proc.sig.return_types) {
-      res |= expr_as_type(a, block, return_type);
+      res |= expr_as_type(a, block, return_type, accept_invalid);
     }
 
     if (!res) return res;
@@ -252,8 +261,9 @@ static symbol_t *symbol_check_expr(
   } break;
 
   case EXPR_SUBSCRIPT: {
-    symbol_check_expr(a, operand_block, NULL, expr->left);
+    symbol_t *sym = symbol_check_expr(a, operand_block, NULL, expr->left);
     symbol_check_expr(a, operand_block, NULL, expr->right);
+    return sym;
   } break;
 
   case EXPR_PROC_CALL: {
@@ -345,7 +355,7 @@ static symbol_t *symbol_check_expr(
         }
       }
 
-      if (!expr_as_type(a, operand_block, &param->type_expr)) {
+      if (!expr_as_type(a, operand_block, &param->type_expr, false)) {
         error(a, param->type_expr.pos, "expression does not represent a type");
       }
 
@@ -364,7 +374,7 @@ static symbol_t *symbol_check_expr(
 
       expr_t *return_expr = &expr->proc.sig.return_types.buf[i];
 
-      if (!expr_as_type(a, operand_block, return_expr)) {
+      if (!expr_as_type(a, operand_block, return_expr, false)) {
         error(a, return_expr->pos, "expression does not represent a type");
       }
     }
@@ -396,6 +406,8 @@ static symbol_t *symbol_check_expr(
   } break;
 
   case EXPR_ARRAY_TYPE: {
+    // TODO: these errors are just explainations of other errors that come from
+    // expr_as_type, so they are practically useless
     if (expr->array.size_expr) {
       if (!is_expr_const(expr->array.size_expr, &operand_block->scope)) {
         error(a, expr->array.size_expr->pos, "array size must be constant");
@@ -455,7 +467,7 @@ static void type_check_expr(
     block_t *operation_block,
     expr_t *expr,
     type_t *expected_type) {
-  expr_as_type(a, operand_block, expr);
+  expr_as_type(a, operand_block, expr, false);
 
   if (operation_block == NULL) operation_block = operand_block;
 
@@ -714,7 +726,7 @@ static void type_check_expr(
     expr_slice_t return_types = proc_sig->return_types;
 
     if (return_types.count >= 1) {
-      expr_as_type(a, operand_block, &return_types.buf[0]);
+      expr_as_type(a, operand_block, &return_types.buf[0], false);
       expr->type = return_types.buf[0].as_type;
     } else {
       static type_t void_type;
@@ -748,6 +760,10 @@ static void type_check_expr(
   } break;
 
   case EXPR_ARRAY_TYPE: {
+    if (!expr->array.size_expr) {
+      error(a, expr->pos, "array type must have a size");
+    }
+
     static type_t ty = {.kind = TYPE_TYPE};
     expr->type       = &ty;
 
@@ -758,10 +774,7 @@ static void type_check_expr(
   } break;
 
   case EXPR_ARRAY_LITERAL: {
-    static type_t ty_ty = {.kind = TYPE_TYPE};
-    type_check_expr(a, operand_block, NULL, expr->array_lit.type_expr, &ty_ty);
-    if (!expr->array_lit.type_expr->as_type) break;
-
+    expr_as_type(a, operand_block, expr->array_lit.type_expr, true);
     assert(expr->array_lit.type_expr->as_type->kind == TYPE_ARRAY);
 
     // Propagate the inferred array sizes to the array types
@@ -845,7 +858,7 @@ static void type_check_expr(
 static void add_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
   switch (stmt->kind) {
   case STMT_CONST_DECL: {
-    if (scope_get(&block->scope, stmt->const_decl.name)) {
+    if (scope_get_local(&block->scope, stmt->const_decl.name)) {
       error(a, stmt->pos, "duplicate declaration");
     }
 
@@ -1090,7 +1103,12 @@ static void type_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
   switch (stmt->kind) {
   case STMT_CONST_DECL: {
     if (stmt->const_decl.typed) {
-      if (!expr_as_type(a, block, &stmt->const_decl.type_expr)) {
+      static type_t ty_ty;
+      ty_ty.kind = TYPE_TYPE;
+
+      type_check_expr(a, block, NULL, &stmt->const_decl.type_expr, &ty_ty);
+
+      if (!stmt->const_decl.type_expr.as_type) {
         error(
             a,
             stmt->const_decl.type_expr.pos,
@@ -1112,7 +1130,7 @@ static void type_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
 
     if (!stmt->const_decl.type) break;
 
-    if (expr_as_type(a, block, &stmt->const_decl.expr)) {
+    if (expr_as_type(a, block, &stmt->const_decl.expr, false)) {
       // If the constant expression is a type, give the type a name
       stmt->const_decl.type->name = stmt->const_decl.name;
     }
@@ -1123,7 +1141,12 @@ static void type_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
     memset(&type, 0, sizeof(type));
 
     if (stmt->var_decl.flags & VAR_DECL_HAS_TYPE) {
-      if (!expr_as_type(a, block, &stmt->var_decl.type_expr)) {
+      static type_t ty_ty;
+      ty_ty.kind = TYPE_TYPE;
+
+      type_check_expr(a, block, NULL, &stmt->var_decl.type_expr, &ty_ty);
+
+      if (!stmt->var_decl.type_expr.as_type) {
         error(
             a,
             stmt->var_decl.type_expr.pos,

@@ -51,12 +51,13 @@ symbol_t *get_expr_sym(expr_t *expr, scope_t *scope) {
     return get_expr_sym(expr->proc_call.expr, scope);
   } break;
 
+  case EXPR_SUBSCRIPT: return get_expr_sym(expr->left, scope);
+
   case EXPR_INTRIN:
   case EXPR_UNARY:
   case EXPR_BINARY:
   case EXPR_ARRAY_TYPE:
   case EXPR_ARRAY_LITERAL:
-  case EXPR_SUBSCRIPT:
   case EXPR_PROC:
   case EXPR_PROC_PTR:
   case EXPR_STRUCT:
