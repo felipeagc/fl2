@@ -9,6 +9,7 @@ Decisions to make
 	- Static assert => #assert(...)
 
 TODO:
+	- unnecessary alloca when: a := []i32{1, 2, 3};
 	- remove @assert
 	- add @line
 	- add @column
