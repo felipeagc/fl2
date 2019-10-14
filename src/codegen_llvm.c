@@ -310,7 +310,7 @@ static void codegen_const_expr(
     if (proc->sig.flags & PROC_FLAG_NO_BODY) break;
 
     if (val->kind == VALUE_UNDEFINED) {
-      char *fun_name = "nested_proc";
+      char *fun_name = "fl_anon_proc";
 
       LLVMTypeRef *param_types = bump_alloc(
           &llvm->ctx->alloc, sizeof(LLVMTypeRef) * proc->sig.params.count);
@@ -417,6 +417,14 @@ static void codegen_expr(
     expr_t *expr,
     value_t *val);
 
+static void codegen_expr_store(
+    llvm_t *llvm,
+    module_t *mod,
+    block_t *operand_block,
+    block_t *operation_block,
+    expr_t *expr,
+    value_t *dest);
+
 static void is_expr_true(
     llvm_t *llvm,
     module_t *mod,
@@ -473,6 +481,47 @@ static void is_expr_true(
   } break;
 
   default: assert(0);
+  }
+}
+
+static void codegen_expr_store(
+    llvm_t *llvm,
+    module_t *mod,
+    block_t *operand_block,
+    block_t *operation_block,
+    expr_t *expr,
+    value_t *dest) {
+  if (operation_block == NULL) operation_block = operand_block;
+
+  switch (expr->kind) {
+  case EXPR_EXPR:
+    return codegen_expr_store(llvm, mod, operand_block, NULL, expr->expr, dest);
+
+  case EXPR_ARRAY_LITERAL: {
+    for (size_t i = 0; i < expr->array_lit.elems.count; i++) {
+      expr_t *elem = &expr->array_lit.elems.buf[i];
+
+      LLVMValueRef indices[2] = {
+          LLVMConstInt(LLVMInt32Type(), 0, false),
+          LLVMConstInt(LLVMInt32Type(), i, false),
+      };
+
+      value_t elem_value;
+      memset(&elem_value, 0, sizeof(elem_value));
+      codegen_expr(llvm, mod, operand_block, NULL, elem, &elem_value);
+
+      LLVMValueRef elem_ptr =
+          LLVMBuildGEP(mod->builder, dest->value, indices, 2, "");
+      LLVMBuildStore(mod->builder, load_val(mod, &elem_value), elem_ptr);
+    }
+  } break;
+
+  default: {
+    value_t value;
+    memset(&value, 0, sizeof(value));
+    codegen_expr(llvm, mod, operand_block, operation_block, expr, &value);
+    LLVMBuildStore(mod->builder, load_val(mod, &value), dest->value);
+  } break;
   }
 }
 
@@ -842,14 +891,8 @@ static void codegen_stmts(llvm_t *llvm, module_t *mod, block_t *block) {
             bump_c_str(&llvm->ctx->alloc, var_decl->name));
 
         if (var_decl->flags & VAR_DECL_HAS_EXPR) {
-          value_t value;
-          memset(&value, 0, sizeof(value));
-
-          codegen_expr(llvm, mod, block, NULL, &var_decl->expr, &value);
-          assert(value.value);
-
-          LLVMBuildStore(
-              mod->builder, load_val(mod, &value), var_decl->sym->value.value);
+          codegen_expr_store(
+              llvm, mod, block, NULL, &var_decl->expr, &var_decl->sym->value);
         } else {
           // Zero initialization
           static LLVMValueRef zero_val = NULL;
@@ -881,13 +924,7 @@ static void codegen_stmts(llvm_t *llvm, module_t *mod, block_t *block) {
           assigned.kind == VALUE_LOCAL_VAR ||
           assigned.kind == VALUE_GLOBAL_VAR);
 
-      value_t value;
-      memset(&value, 0, sizeof(value));
-
-      codegen_expr(llvm, mod, block, NULL, &var_assign->expr, &value);
-      assert(value.value);
-
-      LLVMBuildStore(mod->builder, load_val(mod, &value), assigned.value);
+      codegen_expr_store(llvm, mod, block, NULL, &var_assign->expr, &assigned);
     } break;
 
     case STMT_EXPR: {
