@@ -60,6 +60,7 @@ symbol_t *get_expr_sym(expr_t *expr, scope_t *scope) {
   case EXPR_ARRAY_LITERAL:
   case EXPR_PROC:
   case EXPR_PROC_PTR:
+  case EXPR_MACRO:
   case EXPR_STRUCT:
   case EXPR_IMPORT:
   case EXPR_BLOCK: {
@@ -170,6 +171,7 @@ bool is_expr_const(expr_t *expr, scope_t *scope) {
 
   case EXPR_STRUCT:
   case EXPR_PROC:
+  case EXPR_MACRO:
   case EXPR_PROC_PTR:
   case EXPR_IMPORT:
   case EXPR_ARRAY_TYPE:
@@ -275,6 +277,7 @@ bool resolve_expr_int(expr_t *expr, scope_t *scope, int64_t *result) {
   case EXPR_PROC_CALL:
   case EXPR_PROC:
   case EXPR_PROC_PTR:
+  case EXPR_MACRO:
   case EXPR_STRUCT:
   case EXPR_IMPORT:
   case EXPR_BLOCK: break;

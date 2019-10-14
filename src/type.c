@@ -43,6 +43,7 @@ type_t *exact_types(type_t *received, type_t *expected) {
     }
   } break;
   case TYPE_TYPE: break;
+  case TYPE_MACRO: break;
   case TYPE_NAMESPACE: break;
   case TYPE_UNDEFINED: break;
   case TYPE_STRING: break;
@@ -110,6 +111,9 @@ void print_type(str_builder_t *sb, type_t *type) {
   } break;
   case TYPE_STRUCT: {
     sb_append(sb, STR("struct"));
+  } break;
+  case TYPE_MACRO: {
+    sb_append(sb, STR("macro"));
   } break;
   case TYPE_PROC: {
     sb_append(sb, STR("proc* "));

@@ -167,6 +167,7 @@ typedef struct type_t {
     TYPE_SLICE,     // []i32
     TYPE_STRUCT,    // struct {}
     TYPE_PROC,      // proc (a: i32) i32
+    TYPE_MACRO,     // macro ()
   } kind;
 
   strbuf_t name;
@@ -191,6 +192,7 @@ typedef enum expr_kind_t {
   EXPR_STRUCT,
   EXPR_PROC,
   EXPR_PROC_PTR,
+  EXPR_MACRO,
   EXPR_IMPORT,
   EXPR_ACCESS,
   EXPR_PROC_CALL,

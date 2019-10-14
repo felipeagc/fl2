@@ -169,6 +169,10 @@ static void scan_identifier(scanner_t *s) {
     token.type = TOKEN_DEFER;
     APPEND(s->tokens, token);
     return;
+  } else if (strbuf_cmp(ident, STR("macro"))) {
+    token.type = TOKEN_MACRO;
+    APPEND(s->tokens, token);
+    return;
   } else if (strbuf_cmp(ident, STR("proc"))) {
     token.type = TOKEN_PROC;
     APPEND(s->tokens, token);

@@ -233,6 +233,34 @@ static bool parse_proc(parser_t *p, expr_t *expr) {
   return res;
 }
 
+static bool parse_macro(parser_t *p, expr_t *expr) {
+  bool res = true;
+
+  expr->kind = EXPR_MACRO;
+  memset(&expr->proc, 0, sizeof(expr->proc));
+
+  if (!consume(p, TOKEN_MACRO)) res = false;
+
+  if (!consume(p, TOKEN_LPAREN)) res = false;
+  if (!consume(p, TOKEN_RPAREN)) res = false;
+
+  if (!consume(p, TOKEN_LCURLY)) res = false;
+
+  while (peek(p)->type != TOKEN_RCURLY && !is_at_end(p)) {
+    stmt_t stmt;
+    memset(&stmt, 0, sizeof(stmt));
+    if (parse_stmt(p, &stmt)) {
+      APPEND(expr->proc.block.stmts, stmt);
+    } else {
+      res = false;
+    }
+  }
+
+  if (!consume(p, TOKEN_RCURLY)) res = false;
+
+  return res;
+}
+
 static bool parse_primary(parser_t *p, primary_expr_t *primary) {
   bool res = true;
 
@@ -484,6 +512,9 @@ static bool parse_struct_proc_import(parser_t *p, expr_t *expr) {
   case TOKEN_PROC: {
     return parse_proc(p, expr);
   } break;
+  case TOKEN_MACRO: {
+    return parse_macro(p, expr);
+  } break;
   case TOKEN_STRUCT: {
     expr->kind = EXPR_STRUCT;
     return parse_struct(p, &expr->str);
@@ -573,7 +604,7 @@ static bool parse_array_literal(parser_t *p, expr_t *expr) {
 
       next(p);
 
-      expr->kind                = EXPR_ARRAY_LITERAL;
+      expr->kind = EXPR_ARRAY_LITERAL;
       memset(&expr->array_lit, 0, sizeof(expr->array_lit));
       expr->array_lit.type_expr = type_expr;
 
@@ -745,6 +776,7 @@ static bool parse_decl_or_assign_or_stmt_expr(parser_t *p, stmt_t *stmt) {
 
       switch (stmt->const_decl.expr.kind) {
       case EXPR_STRUCT:
+      case EXPR_MACRO:
       case EXPR_BLOCK: break;
 
       case EXPR_PROC: {
@@ -838,6 +870,7 @@ static bool parse_stmt(parser_t *p, stmt_t *stmt) {
     switch (stmt->expr.kind) {
     case EXPR_STRUCT:
     case EXPR_PROC:
+    case EXPR_MACRO:
     case EXPR_BLOCK: break;
     default: {
       if (!consume(p, TOKEN_SEMI)) res = false;

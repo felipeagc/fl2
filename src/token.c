@@ -71,6 +71,7 @@ char *TOKEN_STRINGS[] = {
     [TOKEN_DEFER]    = "defer",
     [TOKEN_RETURN]   = "return",
     [TOKEN_PROC]     = "proc",
+    [TOKEN_MACRO]    = "macro",
     [TOKEN_PACKED]   = "packed",
     [TOKEN_STRUCT]   = "struct",
     [TOKEN_UNION]    = "union",

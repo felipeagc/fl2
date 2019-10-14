@@ -108,6 +108,7 @@ static LLVMTypeRef llvm_type(llvm_t *llvm, type_t *type) {
 
   case TYPE_NAMESPACE: assert(0);
   case TYPE_TYPE: assert(0);
+  case TYPE_MACRO: assert(0);
   case TYPE_UNDEFINED: assert(0);
   }
 
@@ -115,7 +116,8 @@ static LLVMTypeRef llvm_type(llvm_t *llvm, type_t *type) {
 }
 
 static void pre_pass(llvm_t *llvm, module_t *mod, block_t *block);
-static void codegen_stmts(llvm_t *llvm, module_t *mod, block_t *block);
+static void codegen_stmts(
+    llvm_t *llvm, module_t *mod, block_t *stmts_block, block_t *ctx_block);
 
 static void codegen_const_expr(
     llvm_t *llvm,
@@ -358,7 +360,7 @@ static void codegen_const_expr(
 
     LLVMPositionBuilderAtEnd(mod->builder, entry);
     pre_pass(llvm, mod, &expr->proc.block);
-    codegen_stmts(llvm, mod, &expr->proc.block);
+    codegen_stmts(llvm, mod, &expr->proc.block, &expr->proc.block);
 
     if (proc->sig.return_types.count == 0) {
       if (!LLVMGetBasicBlockTerminator(LLVMGetInsertBlock(mod->builder))) {
@@ -367,6 +369,10 @@ static void codegen_const_expr(
     }
 
     LLVMPositionBuilderAtEnd(mod->builder, prev_pos);
+  } break;
+
+  case EXPR_MACRO: {
+    // Don't generate anything
   } break;
 
   case EXPR_ACCESS: {
@@ -394,7 +400,8 @@ static void codegen_const_expr(
   } break;
 
   case EXPR_IMPORT: {
-    codegen_stmts(llvm, mod, &expr->import.ast->block);
+    codegen_stmts(
+        llvm, mod, &expr->import.ast->block, &expr->import.ast->block);
   } break;
 
   case EXPR_ARRAY_LITERAL: {
@@ -550,9 +557,9 @@ static void codegen_expr(
     case PRIMARY_IDENT: {
       symbol_t *sym = scope_get(&operation_block->scope, expr->primary.string);
       assert(sym);
-      assert(sym->value.kind != VALUE_UNDEFINED);
-
-      *val = sym->value;
+      if (sym->value.kind != VALUE_UNDEFINED) {
+        *val = sym->value;
+      }
     } break;
     }
 
@@ -597,6 +604,10 @@ static void codegen_expr(
   case EXPR_PROC:
     return codegen_const_expr(llvm, mod, operand_block, NULL, expr, val);
 
+  case EXPR_MACRO: {
+    // Don't generate anything
+  } break;
+
   case EXPR_ACCESS: {
     block_t *expr_block = NULL;
     symbol_t *sym       = NULL;
@@ -609,6 +620,16 @@ static void codegen_expr(
   } break;
 
   case EXPR_PROC_CALL: {
+    if (expr->proc_call.expr->type->kind == TYPE_MACRO) {
+      symbol_t *sym =
+          get_expr_sym(expr->proc_call.expr, &operation_block->scope);
+      assert(sym);
+      assert(sym->kind == SYMBOL_CONST_DECL);
+      codegen_stmts(
+          llvm, mod, &sym->const_decl->expr.proc.block, operation_block);
+      break;
+    }
+
     value_t fun_val;
     memset(&fun_val, 0, sizeof(fun_val));
 
@@ -749,7 +770,7 @@ static void codegen_expr(
   } break;
 
   case EXPR_BLOCK: {
-    codegen_stmts(llvm, mod, &expr->block);
+    codegen_stmts(llvm, mod, &expr->block, &expr->block);
   } break;
 
   case EXPR_STRUCT:
@@ -844,13 +865,14 @@ static void pre_pass(llvm_t *llvm, module_t *mod, block_t *block) {
   }
 }
 
-static void codegen_stmts(llvm_t *llvm, module_t *mod, block_t *block) {
-  For(stmt, block->stmts) {
+static void codegen_stmts(
+    llvm_t *llvm, module_t *mod, block_t *stmts_block, block_t *ctx_block) {
+  For(stmt, stmts_block->stmts) {
     switch (stmt->kind) {
     case STMT_CONST_DECL: {
       expr_t *expr = inner_expr(&stmt->const_decl.expr);
       codegen_const_expr(
-          llvm, mod, block, NULL, expr, &stmt->const_decl.sym->value);
+          llvm, mod, ctx_block, NULL, expr, &stmt->const_decl.sym->value);
     } break;
 
     case STMT_VAR_DECL: {
@@ -871,7 +893,7 @@ static void codegen_stmts(llvm_t *llvm, module_t *mod, block_t *block) {
           memset(&const_value, 0, sizeof(const_value));
 
           codegen_const_expr(
-              llvm, mod, block, NULL, &var_decl->expr, &const_value);
+              llvm, mod, ctx_block, NULL, &var_decl->expr, &const_value);
           assert(const_value.value);
 
           LLVMSetInitializer(glob, load_val(mod, &const_value));
@@ -892,7 +914,12 @@ static void codegen_stmts(llvm_t *llvm, module_t *mod, block_t *block) {
 
         if (var_decl->flags & VAR_DECL_HAS_EXPR) {
           codegen_expr_store(
-              llvm, mod, block, NULL, &var_decl->expr, &var_decl->sym->value);
+              llvm,
+              mod,
+              ctx_block,
+              NULL,
+              &var_decl->expr,
+              &var_decl->sym->value);
         } else {
           // Zero initialization
           static LLVMValueRef zero_val = NULL;
@@ -919,17 +946,19 @@ static void codegen_stmts(llvm_t *llvm, module_t *mod, block_t *block) {
 
       value_t assigned;
       memset(&assigned, 0, sizeof(assigned));
-      codegen_expr(llvm, mod, block, NULL, &var_assign->assigned, &assigned);
+      codegen_expr(
+          llvm, mod, ctx_block, NULL, &var_assign->assigned, &assigned);
       assert(
           assigned.kind == VALUE_LOCAL_VAR ||
           assigned.kind == VALUE_GLOBAL_VAR);
 
-      codegen_expr_store(llvm, mod, block, NULL, &var_assign->expr, &assigned);
+      codegen_expr_store(
+          llvm, mod, ctx_block, NULL, &var_assign->expr, &assigned);
     } break;
 
     case STMT_EXPR: {
       value_t value;
-      codegen_expr(llvm, mod, block, NULL, &stmt->expr, &value);
+      codegen_expr(llvm, mod, ctx_block, NULL, &stmt->expr, &value);
     } break;
 
     case STMT_RETURN: {
@@ -937,7 +966,8 @@ static void codegen_stmts(llvm_t *llvm, module_t *mod, block_t *block) {
         value_t value;
         memset(&value, 0, sizeof(value));
 
-        codegen_expr(llvm, mod, block, NULL, &stmt->ret.exprs.buf[0], &value);
+        codegen_expr(
+            llvm, mod, ctx_block, NULL, &stmt->ret.exprs.buf[0], &value);
 
         LLVMBuildRet(mod->builder, load_val(mod, &value));
       } else {
@@ -959,7 +989,7 @@ static void codegen_block(llvm_t *llvm, module_t *mod, block_t *block) {
   pre_pass(llvm, mod, block);
 
   // Generate instructions & values for statements inside block
-  codegen_stmts(llvm, mod, block);
+  codegen_stmts(llvm, mod, block, block);
 }
 
 void llvm_init(llvm_t *llvm, ctx_t *ctx) { llvm->ctx = ctx; }

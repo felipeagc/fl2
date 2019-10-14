@@ -26,7 +26,8 @@ static void error(analyzer_t *a, pos_t pos, const char *fmt, ...) {
 }
 
 static void analyze_block_unordered(analyzer_t *a, block_t *block);
-static void analyze_block_ordered(analyzer_t *a, block_t *block);
+static void
+analyze_block_ordered(analyzer_t *a, block_t *stmts_block, block_t *ctx_block);
 
 static bool
 expr_as_type(analyzer_t *a, block_t *block, expr_t *expr, bool accept_invalid) {
@@ -171,6 +172,7 @@ expr_as_type(analyzer_t *a, block_t *block, expr_t *expr, bool accept_invalid) {
   case EXPR_BINARY: break;
   case EXPR_PROC_CALL: break;
   case EXPR_PROC: break;
+  case EXPR_MACRO: break;
   case EXPR_IMPORT: break;
   case EXPR_BLOCK: break;
   case EXPR_SUBSCRIPT: break;
@@ -281,6 +283,11 @@ static symbol_t *symbol_check_expr(
       case SYMBOL_CONST_DECL: {
         if (proc_sym->const_decl->type->kind == TYPE_PROC) {
           proc_sig = proc_sym->const_decl->type->proc_sig;
+        }
+
+        if (proc_sym->const_decl->type->kind == TYPE_MACRO) {
+          // Macro
+          return NULL;
         }
       } break;
 
@@ -404,6 +411,8 @@ static symbol_t *symbol_check_expr(
       a->ctx->main_proc = &expr->proc;
     }
   } break;
+
+  case EXPR_MACRO: break;
 
   case EXPR_ARRAY_TYPE: {
     // TODO: these errors are just explainations of other errors that come from
@@ -560,7 +569,9 @@ static void type_check_expr(
 
     case PRIMARY_IDENT: {
       symbol_t *sym = get_expr_sym(expr, &operation_block->scope);
-      if (!sym) break;
+      if (!sym) {
+        break;
+      }
 
       switch (sym->kind) {
       case SYMBOL_GLOBAL_VAR:
@@ -719,6 +730,15 @@ static void type_check_expr(
   case EXPR_PROC_CALL: {
     type_check_expr(a, operation_block, NULL, expr->proc_call.expr, NULL);
 
+    if (expr->proc_call.expr->type &&
+        expr->proc_call.expr->type->kind == TYPE_MACRO) {
+      static type_t void_type;
+      void_type.kind = TYPE_PRIMITIVE;
+      void_type.prim = PRIM_TYPE_VOID;
+      expr->type     = &void_type;
+      break;
+    }
+
     if (expr->proc_call.sig == NULL) break;
 
     proc_signature_t *proc_sig = expr->proc_call.sig;
@@ -752,6 +772,11 @@ static void type_check_expr(
 
     ty->kind     = TYPE_PROC;
     ty->proc_sig = &expr->proc.sig;
+  } break;
+
+  case EXPR_MACRO: {
+    static type_t ty = {.kind = TYPE_MACRO};
+    expr->type       = &ty;
   } break;
 
   case EXPR_STRUCT: {
@@ -869,10 +894,10 @@ static void add_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
 
     expr_t *expr = inner_expr(&stmt->const_decl.expr);
     switch (expr->kind) {
+    case EXPR_MACRO:
     case EXPR_PROC: {
       expr->proc.name = stmt->const_decl.name;
     } break;
-
     default: break;
     }
   } break;
@@ -1238,11 +1263,11 @@ static void type_check_stmt(analyzer_t *a, block_t *block, stmt_t *stmt) {
 static void expr_analyze_children(analyzer_t *a, block_t *block, expr_t *expr) {
   switch (expr->kind) {
   case EXPR_PROC: {
-    analyze_block_ordered(a, &expr->proc.block);
+    analyze_block_ordered(a, &expr->proc.block, &expr->proc.block);
   } break;
 
   case EXPR_BLOCK: {
-    analyze_block_ordered(a, &expr->block);
+    analyze_block_ordered(a, &expr->block, &expr->block);
   } break;
 
   case EXPR_EXPR: {
@@ -1260,6 +1285,17 @@ static void expr_analyze_children(analyzer_t *a, block_t *block, expr_t *expr) {
 
   case EXPR_PROC_CALL: {
     expr_analyze_children(a, block, expr->proc_call.expr);
+
+    if (expr->proc_call.expr->type &&
+        expr->proc_call.expr->type->kind == TYPE_MACRO) {
+      symbol_t *macro_sym = get_expr_sym(expr->proc_call.expr, &block->scope);
+
+      assert(macro_sym->const_decl->expr.kind == EXPR_MACRO);
+      proc_t *macro = &macro_sym->const_decl->expr.proc;
+
+      analyze_block_ordered(a, &macro->block, block);
+      break;
+    }
 
     if (expr->proc_call.sig == NULL) break;
     proc_signature_t *proc_sig = expr->proc_call.sig;
@@ -1329,16 +1365,17 @@ static void analyze_block_unordered(analyzer_t *a, block_t *block) {
   }
 }
 
-static void analyze_block_ordered(analyzer_t *a, block_t *block) {
-  For(stmt, block->stmts) {
-    add_stmt(a, block, stmt);
-    add_import(a, block, stmt);
+static void
+analyze_block_ordered(analyzer_t *a, block_t *stmts_block, block_t *ctx_block) {
+  For(stmt, stmts_block->stmts) {
+    add_stmt(a, ctx_block, stmt);
+    add_import(a, ctx_block, stmt);
 
     if (a->errors.count > 0) return;
 
-    symbol_check_stmt(a, block, stmt);
-    type_check_stmt(a, block, stmt);
-    stmt_analyze_children(a, block, stmt);
+    symbol_check_stmt(a, ctx_block, stmt);
+    type_check_stmt(a, ctx_block, stmt);
+    stmt_analyze_children(a, ctx_block, stmt);
   }
 }
 
