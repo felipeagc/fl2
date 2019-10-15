@@ -416,15 +416,33 @@ static bool parse_proc_call(parser_t *p, expr_t *expr) {
 
   if (!parse_expr_expr(p, expr)) res = false;
 
+  if (peek(p)->type == TOKEN_NOT) {
+    // Macro call
+    next(p);
+    expr_t *new_expr = bump_alloc(&p->ctx->alloc, sizeof(expr_t));
+    *new_expr        = *expr;
+
+    expr->kind = EXPR_MACRO_CALL;
+    memset(&expr->macro_call, 0, sizeof(expr->macro_call));
+    expr->macro_call.expr = new_expr;
+
+    if (!consume(p, TOKEN_LPAREN)) res = false;
+    if (!consume(p, TOKEN_RPAREN)) res = false;
+
+    expr->pos.len = peek(p)->pos.offset - expr->pos.offset;
+
+    return res;
+  }
+
   while (peek(p)->type == TOKEN_LPAREN) {
     next(p);
 
     expr_t *new_expr = bump_alloc(&p->ctx->alloc, sizeof(expr_t));
     *new_expr        = *expr;
 
-    expr->kind           = EXPR_PROC_CALL;
+    expr->kind = EXPR_PROC_CALL;
+    memset(&expr->proc_call, 0, sizeof(expr->proc_call));
     expr->proc_call.expr = new_expr;
-    memset(&expr->proc_call.params, 0, sizeof(expr->proc_call.params));
 
     while (peek(p)->type != TOKEN_RPAREN && !is_at_end(p)) {
       expr_t param;

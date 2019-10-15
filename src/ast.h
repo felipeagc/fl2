@@ -70,6 +70,11 @@ typedef struct proc_call_t {
   proc_signature_t *sig;
 } proc_call_t;
 
+typedef struct macro_call_t {
+  expr_t *expr;
+  proc_t *macro;
+} macro_call_t;
+
 typedef struct import_t {
   strbuf_t path;
   ast_t *ast;
@@ -196,6 +201,7 @@ typedef enum expr_kind_t {
   EXPR_IMPORT,
   EXPR_ACCESS,
   EXPR_PROC_CALL,
+  EXPR_MACRO_CALL,
   EXPR_ARRAY_TYPE,
   EXPR_ARRAY_LITERAL,
   EXPR_SUBSCRIPT,
@@ -219,6 +225,7 @@ typedef struct expr_t {
     import_t import;
     access_t access;
     proc_call_t proc_call;
+    macro_call_t macro_call;
     block_t block;
     intrinsic_t intrin;
     struct {

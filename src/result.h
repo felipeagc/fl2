@@ -12,6 +12,7 @@
 
 typedef struct error_t {
   pos_t pos;
+  pos_slice_t pos_stack;
   strbuf_t msg;
 } error_t;
 

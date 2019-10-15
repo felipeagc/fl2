@@ -31,6 +31,11 @@
     ((slice).count)++;                                                         \
   } while (0)
 
+#define POP_LAST(slice)                                                        \
+  do {                                                                         \
+    if ((slice).count > 0) (slice).count -= 1;                                 \
+  } while (0)
+
 typedef SLICE(char) strbuf_t;
 
 #define STR(lit)                                                               \

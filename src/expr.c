@@ -51,6 +51,10 @@ symbol_t *get_expr_sym(expr_t *expr, scope_t *scope) {
     return get_expr_sym(expr->proc_call.expr, scope);
   } break;
 
+  case EXPR_MACRO_CALL: {
+    return get_expr_sym(expr->macro_call.expr, scope);
+  } break;
+
   case EXPR_SUBSCRIPT: return get_expr_sym(expr->left, scope);
 
   case EXPR_INTRIN:
@@ -178,6 +182,7 @@ bool is_expr_const(expr_t *expr, scope_t *scope) {
   case EXPR_INTRIN: return true;
 
   case EXPR_PROC_CALL: return false;
+  case EXPR_MACRO_CALL: return false;
 
   case EXPR_UNARY: {
     switch (expr->unary.kind) {
@@ -275,6 +280,7 @@ bool resolve_expr_int(expr_t *expr, scope_t *scope, int64_t *result) {
   case EXPR_ARRAY_TYPE:
   case EXPR_ARRAY_LITERAL:
   case EXPR_PROC_CALL:
+  case EXPR_MACRO_CALL:
   case EXPR_PROC:
   case EXPR_PROC_PTR:
   case EXPR_MACRO:

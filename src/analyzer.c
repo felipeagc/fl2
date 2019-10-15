@@ -17,9 +17,14 @@ static void error(analyzer_t *a, pos_t pos, const char *fmt, ...) {
   sb_vsprintf(&a->ctx->sb, fmt, vl);
   va_end(vl);
 
+  pos_slice_t pos_stack = a->pos_stack;
+  pos_stack.buf = bump_alloc(&a->ctx->alloc, sizeof(pos_t) * pos_stack.count);
+  memcpy(pos_stack.buf, a->pos_stack.buf, sizeof(pos_t) * pos_stack.count);
+
   error_t err = {
-      .pos = pos,
-      .msg = bump_strdup(&a->ctx->alloc, sb_build(&a->ctx->sb)),
+      .pos       = pos,
+      .pos_stack = pos_stack,
+      .msg       = bump_strdup(&a->ctx->alloc, sb_build(&a->ctx->sb)),
   };
 
   APPEND(a->errors, err);
@@ -171,6 +176,7 @@ expr_as_type(analyzer_t *a, block_t *block, expr_t *expr, bool accept_invalid) {
   case EXPR_ARRAY_LITERAL: break;
   case EXPR_BINARY: break;
   case EXPR_PROC_CALL: break;
+  case EXPR_MACRO_CALL: break;
   case EXPR_PROC: break;
   case EXPR_MACRO: break;
   case EXPR_IMPORT: break;
@@ -268,6 +274,22 @@ static symbol_t *symbol_check_expr(
     return sym;
   } break;
 
+  case EXPR_MACRO_CALL: {
+    symbol_t *macro_sym =
+        symbol_check_expr(a, operation_block, NULL, expr->macro_call.expr);
+
+    if (!macro_sym) {
+      error(
+          a,
+          expr->macro_call.expr->pos,
+          "expression does not refer to a macro");
+      break;
+    }
+
+    expr_t *macro_expr     = inner_expr(&macro_sym->const_decl->expr);
+    expr->macro_call.macro = &macro_expr->proc;
+  } break;
+
   case EXPR_PROC_CALL: {
     symbol_t *proc_sym =
         symbol_check_expr(a, operation_block, NULL, expr->proc_call.expr);
@@ -283,11 +305,6 @@ static symbol_t *symbol_check_expr(
       case SYMBOL_CONST_DECL: {
         if (proc_sym->const_decl->type->kind == TYPE_PROC) {
           proc_sig = proc_sym->const_decl->type->proc_sig;
-        }
-
-        if (proc_sym->const_decl->type->kind == TYPE_MACRO) {
-          // Macro
-          return NULL;
         }
       } break;
 
@@ -727,17 +744,17 @@ static void type_check_expr(
     expr->type = expr->left->type->subtype;
   } break;
 
+  case EXPR_MACRO_CALL: {
+    type_check_expr(a, operation_block, NULL, expr->macro_call.expr, NULL);
+
+    static type_t void_type;
+    void_type.kind = TYPE_PRIMITIVE;
+    void_type.prim = PRIM_TYPE_VOID;
+    expr->type     = &void_type;
+  } break;
+
   case EXPR_PROC_CALL: {
     type_check_expr(a, operation_block, NULL, expr->proc_call.expr, NULL);
-
-    if (expr->proc_call.expr->type &&
-        expr->proc_call.expr->type->kind == TYPE_MACRO) {
-      static type_t void_type;
-      void_type.kind = TYPE_PRIMITIVE;
-      void_type.prim = PRIM_TYPE_VOID;
-      expr->type     = &void_type;
-      break;
-    }
 
     if (expr->proc_call.sig == NULL) break;
 
@@ -1283,19 +1300,16 @@ static void expr_analyze_children(analyzer_t *a, block_t *block, expr_t *expr) {
     }
   } break;
 
+  case EXPR_MACRO_CALL: {
+    expr_analyze_children(a, block, expr->macro_call.expr);
+
+    APPEND(a->pos_stack, expr->pos);
+    analyze_block_ordered(a, &expr->macro_call.macro->block, block);
+    POP_LAST(a->pos_stack);
+  } break;
+
   case EXPR_PROC_CALL: {
     expr_analyze_children(a, block, expr->proc_call.expr);
-
-    if (expr->proc_call.expr->type &&
-        expr->proc_call.expr->type->kind == TYPE_MACRO) {
-      symbol_t *macro_sym = get_expr_sym(expr->proc_call.expr, &block->scope);
-
-      assert(macro_sym->const_decl->expr.kind == EXPR_MACRO);
-      proc_t *macro = &macro_sym->const_decl->expr.proc;
-
-      analyze_block_ordered(a, &macro->block, block);
-      break;
-    }
 
     if (expr->proc_call.sig == NULL) break;
     proc_signature_t *proc_sig = expr->proc_call.sig;

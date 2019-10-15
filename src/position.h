@@ -20,6 +20,8 @@ typedef struct pos_t {
   size_t col;
 } pos_t;
 
+typedef SLICE(pos_t) pos_slice_t;
+
 bool file_init(file_t *file, ctx_t *ctx, strbuf_t path);
 
 void file_destroy(file_t *file);

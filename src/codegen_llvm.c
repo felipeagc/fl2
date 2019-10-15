@@ -384,6 +384,11 @@ static void codegen_const_expr(
     assert(0);
   } break;
 
+  case EXPR_MACRO_CALL: {
+    // Unimplemented
+    assert(0);
+  } break;
+
   case EXPR_UNARY: {
     // TODO
   } break;
@@ -619,17 +624,11 @@ static void codegen_expr(
     }
   } break;
 
-  case EXPR_PROC_CALL: {
-    if (expr->proc_call.expr->type->kind == TYPE_MACRO) {
-      symbol_t *sym =
-          get_expr_sym(expr->proc_call.expr, &operation_block->scope);
-      assert(sym);
-      assert(sym->kind == SYMBOL_CONST_DECL);
-      codegen_stmts(
-          llvm, mod, &sym->const_decl->expr.proc.block, operation_block);
-      break;
-    }
+  case EXPR_MACRO_CALL: {
+    codegen_stmts(llvm, mod, &expr->macro_call.macro->block, operation_block);
+  } break;
 
+  case EXPR_PROC_CALL: {
     value_t fun_val;
     memset(&fun_val, 0, sizeof(fun_val));
 

@@ -1,10 +1,10 @@
 using import "tests/c.fl";
 
 assert :: macro () {
-	printf(c"hello, %d\n", x);
+  printf(c"hello, %d\n", d);
 }
 
 main :: proc () {
-	x: i32 = 123;
-	assert();
+  x: i32 = 123;
+  assert!();
 }
